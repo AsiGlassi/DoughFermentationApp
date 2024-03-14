@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:dough_fermentation/Messages.dart';
 
 import 'dart:async';
 
@@ -15,7 +16,7 @@ const String CHARACTERISTIC_START_UUID = "fc70539e-2e17-4cf8-b7e2-4375fc7ded5a";
 const String CHARACTERISTIC_STATUS_UUID = "a1990b88-249f-45b2-a0b2-ba0f1f90ca0a";
 const String CHARACTERISTIC_DESIRED_FERMENTATION_UUID = "b1f4f8ec-efd5-4fd9-be66-09bbb9baa1da";
 
-enum DoughServcieStatusEnum { idle, Fermenting, ReachedDesiredFerm, OverFerm, Error }
+enum DoughServcieStatusEnum { idle, Connected, Fermenting, ReachedDesiredFerm, OverFerm, Error }
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -78,7 +79,7 @@ class _HomePageState extends State<HomePage> {
                       Icon(
                         size: 30.0,
                         btState == BluetoothState.off ? Icons.bluetooth_disabled : Icons.bluetooth_outlined,
-                        color: btState == BluetoothState.off ? Colors.grey : Colors.blue,
+                        color: btState == BluetoothState.off ? Colors.redAccent : Colors.blue,
                       ),
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 10.0),
@@ -222,7 +223,7 @@ class _HomePageState extends State<HomePage> {
                               : doughServcieStatus == DoughServcieStatusEnum.Fermenting
                                   ? 'Fermenting'
                                   : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
-                                      ? 'Done, Reached Desired Fermentation'
+                                      ? 'Done'
                                       : doughServcieStatus == DoughServcieStatusEnum.OverFerm
                                           ? 'Over Fermentation'
                                           : 'Error',
@@ -284,11 +285,11 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         btState = state;
       });
-      /*if (state == BluetoothState.off) {
+      if (state == BluetoothState.off) {
         //Alert user to turn on bluetooth.
       } else if (state == BluetoothState.on) {
-        //if bluetooth is enabled then go ahead.
-      }*/
+         ScanBleDoughDevice(flutterBlue);
+      }
     });
   }
 
@@ -365,16 +366,16 @@ class _HomePageState extends State<HomePage> {
               List<int> value = await character.read();
               debugPrint('Read DoughServcieStatus value ${character.uuid} --> $value');
               setState(() {
-                int intValue = GetIntCharacteristics(value);
-                doughServcieStatus = DoughServcieStatusEnum.values[intValue];
+                StatusMessage statusValue = GetStatusCharacteristics(value);
+                doughServcieStatus = DoughServcieStatusEnum.values[statusValue.status];
               });
             }
             if (!character.isNotifying) {
               statusCharSub = character.value.listen((value) {
                 debugPrint('Listen DoughServcieStatus Value ${character.uuid} --> $value');
                 setState(() {
-                  int intValue = GetIntCharacteristics(value);
-                  doughServcieStatus = DoughServcieStatusEnum.values[intValue];
+                  StatusMessage statusValue = GetStatusCharacteristics(value);
+                  doughServcieStatus = DoughServcieStatusEnum.values[statusValue.status];
                 });
               });
               Future.delayed(const Duration(milliseconds: 1000), () {
@@ -460,6 +461,19 @@ class _HomePageState extends State<HomePage> {
       }
     }
     return doubleValue;
+  }
+
+  StatusMessage GetStatusCharacteristics(List<int> value) {
+
+    StatusMessage statusValue = StatusMessage.EmptyConstructor();
+    if (value.isNotEmpty) {
+      String stringValue = const AsciiDecoder().convert(value);
+      if (stringValue != 'N/A') {
+        final statusMap = jsonDecode(stringValue) as Map<String, dynamic>;
+        statusValue = StatusMessage.fromJson(statusMap);
+      }
+    }
+    return statusValue;
   }
 
 
