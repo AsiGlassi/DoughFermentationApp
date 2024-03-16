@@ -17,6 +17,15 @@ const String CHARACTERISTIC_STATUS_UUID = "a1990b88-249f-45b2-a0b2-ba0f1f90ca0a"
 const String CHARACTERISTIC_DESIRED_FERMENTATION_UUID = "b1f4f8ec-efd5-4fd9-be66-09bbb9baa1da";
 
 enum DoughServcieStatusEnum { idle, Connected, Fermenting, ReachedDesiredFerm, OverFerm, Error }
+final List<Color> doughServcieStatuColors = <Color>[
+  const Color.fromARGB(0xFF, 0xFF, 0xFF, 0xFF), //GRB 0xFFFFFF,
+  const Color.fromARGB(0xFF, 0xAC, 0x61, 0x99), //GRB 0xAC6199
+  const Color.fromARGB(0xFF, 0xFF, 0xFF, 0x88), //GRB 0xFFFF88
+  const Color.fromARGB(0xFF, 0x33, 0xFF, 0x33), //GRB 0x33FF33
+  const Color.fromARGB(0xFF, 0xFF, 0x75, 0x33), //GRB 0xFF7533
+  const Color.fromARGB(0xFF, 0xEE, 0x33, 0x33)  //GRB 0xEE3333
+];
+
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -26,6 +35,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  var cblack = Colors.black;
   bool statusChangeByUser = false;
 
   FlutterBlue flutterBlue = FlutterBlue.instance;
@@ -44,6 +54,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final my_color_variable = Colors.red;
     return Center(
       child: Column(children: [
         // ElevatedButton(
@@ -170,25 +181,22 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      primary: Colors.blueAccent,
+                      backgroundColor: Colors.blueAccent,
                     ),
                     onPressed: (asiDoughDeviceState != BluetoothDeviceState.connected)
                         ? null
                         : () async {
-                            if ((doughServcieStatus == DoughServcieStatusEnum.idle) &&
-                                (asiDoughDeviceState == BluetoothDeviceState.connected)) {
-                              if (startStopCharactaristics != null) {
+                          if ((startStopCharactaristics != null) && (asiDoughDeviceState == BluetoothDeviceState.connected)) {
+                            if ((doughServcieStatus == DoughServcieStatusEnum.idle) || (doughServcieStatus == DoughServcieStatusEnum.Connected)) {
                                 debugPrint('Start Fermentation Monitoring.');
                                 await startStopCharactaristics?.write([0x1]);
-                              }
                             } else {
-                              if (startStopCharactaristics != null) {
-                                debugPrint('Stop Fermentation Monitoring.');
-                                await startStopCharactaristics?.write([0x0]);
-                              }
+                              debugPrint('Stop Fermentation Monitoring.');
+                              await startStopCharactaristics?.write([0x0]);
+                            }
                             }
                           },
-                    child: Text((doughServcieStatus != DoughServcieStatusEnum.idle) ? 'Stop' : 'Start',
+                    child: Text(((doughServcieStatus == DoughServcieStatusEnum.idle) || (doughServcieStatus == DoughServcieStatusEnum.Connected)) ? 'Start' : 'Stop',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -198,7 +206,7 @@ class _HomePageState extends State<HomePage> {
                   //Fermentation Status -   idle, Fermenting, ReachedDesiredFerm, OverFerm, Error
                   Container(
                     decoration:
-                        BoxDecoration(color: Colors.blue[50], border: Border.all(color: Colors.lightBlue, width: 2.0)),
+                        BoxDecoration(color: doughServcieStatuColors[doughServcieStatus.index], border: Border.all(color: Colors.lightBlue, width: 2.0)),
                     margin: const EdgeInsets.symmetric(vertical: 5.0),
                     child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
                       //BT Icon
@@ -206,13 +214,15 @@ class _HomePageState extends State<HomePage> {
                         size: 30.0,
                         doughServcieStatus == DoughServcieStatusEnum.idle
                             ? Icons.hourglass_empty
-                            : doughServcieStatus == DoughServcieStatusEnum.Fermenting
-                                ? Icons.hourglass_bottom
-                                : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
-                                    ? Icons.hourglass_full
-                                    : doughServcieStatus == DoughServcieStatusEnum.OverFerm
-                                        ? Icons.upload_sharp
-                                        : Icons.error_outline,
+                            :doughServcieStatus == DoughServcieStatusEnum.Connected
+                            ? Icons.bluetooth_connected
+                              : doughServcieStatus == DoughServcieStatusEnum.Fermenting
+                                  ? Icons.hourglass_bottom
+                                  : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
+                                      ? Icons.hourglass_full
+                                      : doughServcieStatus == DoughServcieStatusEnum.OverFerm
+                                          ? Icons.upload_sharp
+                                          : Icons.error_outline,
                         color: btState == DoughServcieStatusEnum.Error ? Colors.red : Colors.blue,
                       ),
                       Container(
@@ -220,14 +230,16 @@ class _HomePageState extends State<HomePage> {
                         child: Text(
                           doughServcieStatus == DoughServcieStatusEnum.idle
                               ? 'Idle'
-                              : doughServcieStatus == DoughServcieStatusEnum.Fermenting
-                                  ? 'Fermenting'
-                                  : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
-                                      ? 'Done'
-                                      : doughServcieStatus == DoughServcieStatusEnum.OverFerm
-                                          ? 'Over Fermentation'
-                                          : 'Error',
-                          style: const TextStyle(
+                              : doughServcieStatus == DoughServcieStatusEnum.Connected
+                                ? 'Connected'
+                                : doughServcieStatus == DoughServcieStatusEnum.Fermenting
+                                    ? 'Fermenting'
+                                    : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
+                                        ? 'Done'
+                                        : doughServcieStatus == DoughServcieStatusEnum.OverFerm
+                                            ? 'Over Fermentation'
+                                            : 'Error',
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
