@@ -1,12 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:flutter/cupertino.dart';
+// import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:dough_fermentation/Messages.dart';
 
 import 'dart:async';
 
-import 'package:flutter_blue/flutter_blue.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+
+
 
 const String DOUGH_DEVICE_NAME = "Asi Dough Height";
 const String DOUGH_HEIGHT_SERVICE_UUID = "3ee2ffbe-e236-41f2-9c40-d44563ddc614";
@@ -23,7 +26,8 @@ final List<Color> doughServcieStatuColors = <Color>[
   const Color.fromARGB(0xFF, 0xFF, 0xFF, 0x88), //GRB 0xFFFF88
   const Color.fromARGB(0xFF, 0x33, 0xFF, 0x33), //GRB 0x33FF33
   const Color.fromARGB(0xFF, 0xFF, 0x75, 0x33), //GRB 0xFF7533
-  const Color.fromARGB(0xFF, 0xEE, 0x33, 0x33)  //GRB 0xEE3333
+  const Color.fromARGB(0xFF, 0xEE, 0x33, 0x33),  //GRB 0xEE3333
+
 ];
 
 
@@ -35,22 +39,26 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+
   var cblack = Colors.black;
   bool statusChangeByUser = false;
 
-  FlutterBlue flutterBlue = FlutterBlue.instance;
-  BluetoothState btState = BluetoothState.unknown;
+  BluetoothAdapterState btState = BluetoothAdapterState.unknown;
+
+  FlutterBluePlus flutterBluePlus = FlutterBluePlus();
   late BluetoothDevice asiDoughDevice;
-  bool isConnecting = true;
-  BluetoothDeviceState asiDoughDeviceState = BluetoothDeviceState.disconnected;
+  bool isScanning = false;
+  BluetoothAdapterState  btDeviceState = BluetoothAdapterState.unknown;
   BluetoothCharacteristic? startStopCharactaristics = null;
   DoughServcieStatusEnum doughServcieStatus = DoughServcieStatusEnum.idle;
   int doughHeight = 0;
   double fermPrecentage = 0.0;
 
   //event subscription
-  late StreamSubscription<List<int>> statusCharSub;
-  late StreamSubscription<List<int>> heightCharSub;
+  late StreamSubscription<BluetoothAdapterState> adapterStateSubsc;
+  late StreamSubscription<BluetoothAdapterState> deviceStateSubsc;
+  late StreamSubscription<List<int>> statusCharSubsc;
+  late StreamSubscription<List<int>> heightCharSubsc;
 
   @override
   Widget build(BuildContext context) {
@@ -89,13 +97,13 @@ class _HomePageState extends State<HomePage> {
                       //BT Icon
                       Icon(
                         size: 30.0,
-                        btState == BluetoothState.off ? Icons.bluetooth_disabled : Icons.bluetooth_outlined,
-                        color: btState == BluetoothState.off ? Colors.redAccent : Colors.blue,
+                        btState == BluetoothAdapterState.off ? Icons.bluetooth_disabled : Icons.bluetooth_outlined,
+                        color: btState == BluetoothAdapterState.off ? Colors.redAccent : Colors.blue,
                       ),
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 10.0),
                         child: Text(
-                          btState == BluetoothState.off ? 'BT Off' : 'BT On',
+                          btState == BluetoothAdapterState.off ? 'BT Off' : 'BT On',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -114,19 +122,22 @@ class _HomePageState extends State<HomePage> {
                       behavior: HitTestBehavior.opaque,
                       onTap: () async {
                         //Change device conn status
-                        switch (asiDoughDeviceState) {
-                          case BluetoothDeviceState.disconnected:
+                        switch (btDeviceState) {
+                          case BluetoothAdapterState.unknown:
+                          case BluetoothAdapterState.on:
+                          //case BluetoothAdapterState.unauthorized:
+                          //case BluetoothAdapterState.unavailable:
                             debugPrint('Scanning for Devcie ...');
-                            await ScanBleDoughDevice(flutterBlue);
+                            await ScanBleDoughDevice(flutterBluePlus);
                             break;
-                          case BluetoothDeviceState.disconnecting:
-                            {
-                              debugPrint('Connecting back...');
-                              await asiDoughDevice.connect();
-                            }
-                            break;
-                          case BluetoothDeviceState.connected:
-                          case BluetoothDeviceState.connecting:
+                          // case BluetoothAdapterState.turningOff:
+                          //   {
+                          //     debugPrint('Connecting back...');
+                          //     await asiDoughDevice.connect();
+                          //   }
+                          //   break;
+                          // case BluetoothAdapterState.off:
+                          case BluetoothAdapterState.turningOff:
                             {
                               debugPrint('Disconnecting device');
                               statusChangeByUser = true;
@@ -136,18 +147,24 @@ class _HomePageState extends State<HomePage> {
                         }
                       },
                       child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
-                        //Device Connected Icon
+                        //Device   Icon
                         Icon(
                           size: 30.0,
-                          asiDoughDeviceState == BluetoothDeviceState.disconnected
-                              ? Icons.bluetooth_outlined
-                              : Icons.bluetooth_connected,
-                          color: asiDoughDeviceState == BluetoothDeviceState.disconnected ? Colors.grey : Colors.blue,
+                          doughServcieStatus == DoughServcieStatusEnum.Connected
+                              ? Icons.bluetooth_connected
+                              : Icons.bluetooth_outlined,
+                          color: doughServcieStatus == DoughServcieStatusEnum.Connected
+                              ? Colors.blue
+                              : Colors.grey,
                         ),
                         Container(
                           margin: const EdgeInsets.symmetric(horizontal: 10.0),
                           child: Text(
-                            asiDoughDeviceState == BluetoothDeviceState.disconnected ? 'Not Connected' : 'Connected',
+                            doughServcieStatus == DoughServcieStatusEnum.Connected
+                                ? 'Connected'
+                                : isScanning
+                                  ? 'Connecting ...'
+                                  : 'Not Connected',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -183,10 +200,10 @@ class _HomePageState extends State<HomePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueAccent,
                     ),
-                    onPressed: (asiDoughDeviceState != BluetoothDeviceState.connected)
+                    onPressed: (btDeviceState != BluetoothAdapterState.on)
                         ? null
                         : () async {
-                          if ((startStopCharactaristics != null) && (asiDoughDeviceState == BluetoothDeviceState.connected)) {
+                          if ((startStopCharactaristics != null) && (btDeviceState == BluetoothAdapterState.on)) {
                             if ((doughServcieStatus == DoughServcieStatusEnum.idle) || (doughServcieStatus == DoughServcieStatusEnum.Connected)) {
                                 debugPrint('Start Fermentation Monitoring.');
                                 await startStopCharactaristics?.write([0x1]);
@@ -200,7 +217,7 @@ class _HomePageState extends State<HomePage> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: asiDoughDeviceState == BluetoothDeviceState.connected ? Colors.black : Colors.grey,
+                          color: btDeviceState == BluetoothAdapterState.on ? Colors.black : Colors.grey,
                         )),
                   ),
                   //Fermentation Status -   idle, Fermenting, ReachedDesiredFerm, OverFerm, Error
@@ -292,66 +309,147 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
 
-    //checks bluetooth current state
-    FlutterBlue.instance.state.listen((state) {
+    //set BT logger settings
+    FlutterBluePlus.setLogLevel(LogLevel.info, color:false);
+
+    //listen bluetooth current state
+    adapterStateSubsc = FlutterBluePlus.adapterState.listen((state) {
+
       setState(() {
         btState = state;
       });
-      if (state == BluetoothState.off) {
-        //Alert user to turn on bluetooth.
-      } else if (state == BluetoothState.on) {
-         ScanBleDoughDevice(flutterBlue);
+
+      if (state == BluetoothAdapterState.off) {
+        //ToDo - Alert user to turn on bluetooth.
+        debugPrint('Bluetooth is OFF.');
+
+        // turn on bluetooth ourself if we can
+        // for iOS, the user controls bluetooth enable/disable
+        if (/*!kIsWeb && */Platform.isAndroid) {
+          // FlutterBluePlus.turnOn();
+        }
+      } else if (state == BluetoothAdapterState.on) {
+        //Get Service
+         ScanBleDoughDevice(flutterBluePlus);
       }
     });
+
+    // cancel to prevent duplicate listeners
+    // adapterStateSubsc.cancel();
   }
 
-  ScanBleDoughDevice(FlutterBlue flutterBlue) async {
+  // Future requestBluetoothPermission() async {
+  //   PermissionStatus status = await Permission.bluetoothScan.request();
+  //   if (status.isGranted) {
+  //     print("Bluetooth scan permission granted");
+  //   } else {
+  //     print("Bluetooth scan permission denied");
+  //   }
+  // }
+
+  ScanBleDoughDevice(FlutterBluePlus flutterBluePlus) async {
     String str = 'N/A';
 
     // Start scanning
+    // await requestBluetoothPermission();
     debugPrint('Start scanning for devices.');
 
     // Listen to scan results
-    StreamSubscription<List<ScanResult>> scanSub = flutterBlue.scanResults.listen((results) async {
+    StreamSubscription<List<ScanResult>> scanSubsc = FlutterBluePlus.onScanResults.listen((results) async {
+
+      debugPrint('Device Scan Result size;${results.length}');
+
       // do something with scan results
-      for (ScanResult r in results) {
-        debugPrint('\'${r.device.name}\' with rssi: ${r.rssi}');
+      // for (ScanResult result in results) {
+      if (results.isNotEmpty) {
+        ScanResult result = results.last; // the most recently found device
 
-        if (r.device.name == DOUGH_DEVICE_NAME) {
-          asiDoughDevice = r.device;
-          str = asiDoughDevice.name;
-          debugPrint('${str} GOT Asi Dough Device, Connecting....');
+        debugPrint('\'${result.device.platformName}\' with rssi: ${result.rssi}');
 
-          // Stop scanning
-          debugPrint('Stop scanning (found my device');
-          await flutterBlue.stopScan();
+        if (result.device.platformName == DOUGH_DEVICE_NAME) {
+          asiDoughDevice = result.device;
+          str = asiDoughDevice.platformName;
+          debugPrint('\'${str}\' Found Asi Dough Device, Connecting....');
 
-          // Subscribe to connection changes
-          StreamSubscription<BluetoothDeviceState> deviceStateSubscription = r.device.state.listen((state) async {
-            setState(() {
-              asiDoughDeviceState = state;
-            });
+          //Subscribe for device connection/disconnection
+          asiDoughDevice.connectionState.listen((state) {
+
             debugPrint('Device status changed to \'${state.name}\'');
 
-            if (state == BluetoothDeviceState.connected) {
-              debugPrint('Connected');
+            if (state == BluetoothConnectionState.connected) {
+              discoverBleDoughServices();
+            } else if (state == BluetoothConnectionState.disconnected) {
 
-              //Get Service
-              await discoverBleDoughServices();
-            } else if (state == BluetoothDeviceState.disconnected) {
-              debugPrint('Disconnected !!');
               if (!statusChangeByUser) {
-                await r.device.connect();
+                setState(() {
+                  doughServcieStatus = DoughServcieStatusEnum.idle;
+                });
+                Future.delayed(const Duration(milliseconds: 5000), () {
+                  asiDoughDevice.connect();
+                });
               }
             }
           });
 
-          break;
+          await asiDoughDevice.connect();
+
+          if (Platform.isAndroid) {
+            await result.device.requestMtu(512); // Example value
+          }
+
+          // Stop scanning
+          debugPrint('Stop scanning (found my device)');
+          await FlutterBluePlus.stopScan();
+
+  /*
+          // Subscribe to connection changes
+          deviceStateSubsc = FlutterBluePlus.adapterState.listen((state) async {
+            setState(() {
+              btDeviceState = state;
+            });
+
+            debugPrint('Device status changed to \'${state.name}\'');
+
+            if (state == BluetoothAdapterState.on) {
+              //Get Service
+              await discoverBleDoughServices();
+
+            } else if (state == BluetoothAdapterState.off) {
+              //try to reconnect
+              //Todo - Put a Timer
+              if (!statusChangeByUser) {
+                await result.device.connect();
+              }
+            } else {
+              debugPrint('Device status changed to \'${state.name}\'  --> Not Handled.');
+            }
+          });
+*/
+          // break;
         }
       }
+    },
+      onError: (error) => print("Error inn scan results: $error"),
+    );
+
+    // cleanup: cancel subscription when scanning stops
+    FlutterBluePlus.cancelWhenScanComplete(scanSubsc);
+
+    //start actual scan
+    isScanning = true;
+    FlutterBluePlus.startScan(
+        // withServices:[Guid(DOUGH_HEIGHT_SERVICE_UUID)], // match any of the specified services
+        withNames:["Asi Dough Height"], // *or* any of the specified names
+        timeout: const Duration(seconds: 5)
+    ).catchError((error) {
+      print("Error starting scan: $error");
     });
 
-    flutterBlue.startScan(timeout: const Duration(seconds: 4));
+    // wait for scanning to stop
+    await FlutterBluePlus.isScanning.where((val) => val == false).first;
+    setState(() {
+      isScanning = false;
+    });
   }
 
   discoverBleDoughServices() async {
@@ -360,7 +458,7 @@ class _HomePageState extends State<HomePage> {
     //Look for Dough Height Service
     for (var service in services) {
       if (service.uuid.toString().compareTo(DOUGH_HEIGHT_SERVICE_UUID) == 0) {
-        debugPrint(' Found Service ${service.uuid}');
+        debugPrint('Found the Dough Height Service');
         await ReadCharacteristics(service);
       }
     }
@@ -383,7 +481,7 @@ class _HomePageState extends State<HomePage> {
               });
             }
             if (!character.isNotifying) {
-              statusCharSub = character.value.listen((value) {
+              statusCharSubsc = character.value.listen((value) {
                 debugPrint('Listen DoughServcieStatus Value ${character.uuid} --> $value');
                 setState(() {
                   StatusMessage statusValue = GetStatusCharacteristics(value);
@@ -406,7 +504,7 @@ class _HomePageState extends State<HomePage> {
               });
             }
             if (!character.isNotifying) {
-              heightCharSub = character.value.listen((value) {
+              heightCharSubsc = character.value.listen((value) {
                 debugPrint('Listen Dough Height ${character.uuid} --> $value');
                 setState(() {
                   doughHeight = GetIntCharacteristics(value);
@@ -434,7 +532,7 @@ class _HomePageState extends State<HomePage> {
               });
             }
             if (!character.isNotifying) {
-              heightCharSub = character.value.listen((value) {
+              heightCharSubsc = character.value.listen((value) {
                 debugPrint('Listen Dough Fermentation Percentage ${character.uuid} --> $value');
                 setState(() {
                   fermPrecentage = (GetDoubleCharacteristics(value) * 100);
@@ -491,8 +589,14 @@ class _HomePageState extends State<HomePage> {
 
   void DisconnectingDevice() {
     debugPrint('Disconnecting from device, remove subscriptions');
-    heightCharSub.cancel();
-    statusCharSub.cancel();
+    heightCharSubsc.cancel();
+    statusCharSubsc.cancel();
     asiDoughDevice.disconnect();
   }
+
+  // @override
+  // void dispose() {
+  //   deviceStateSubscription.cancel();
+  //   super.dispose();
+  // }
 }
