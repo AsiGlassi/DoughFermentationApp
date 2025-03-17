@@ -19,16 +19,15 @@ const String CHARACTERISTIC_START_UUID = "fc70539e-2e17-4cf8-b7e2-4375fc7ded5a";
 const String CHARACTERISTIC_STATUS_UUID = "a1990b88-249f-45b2-a0b2-ba0f1f90ca0a";
 const String CHARACTERISTIC_DESIRED_FERMENTATION_UUID = "b1f4f8ec-efd5-4fd9-be66-09bbb9baa1da";
 
-enum DoughServcieStatusEnum { idle, Connected, Fermenting, ReachedDesiredFerm, OverFerm, Error }
+enum DoughServcieStatusEnum { idle, Fermenting, ReachedDesiredFerm, OverFerm, Error }
 final List<Color> doughServcieStatuColors = <Color>[
   const Color.fromARGB(0xFF, 0xFF, 0xFF, 0xFF), //GRB 0xFFFFFF,
-  const Color.fromARGB(0xFF, 0xAC, 0x61, 0x99), //GRB 0xAC6199
   const Color.fromARGB(0xFF, 0xFF, 0xFF, 0x88), //GRB 0xFFFF88
   const Color.fromARGB(0xFF, 0x33, 0xFF, 0x33), //GRB 0x33FF33
   const Color.fromARGB(0xFF, 0xFF, 0x75, 0x33), //GRB 0xFF7533
   const Color.fromARGB(0xFF, 0xEE, 0x33, 0x33),  //GRB 0xEE3333
-
 ];
+const Color deviceConnectedColor = Color.fromARGB(0xFF, 0xAC, 0x61, 0x99); //GRB 0xAC6199
 
 
 class HomePage extends StatefulWidget {
@@ -40,7 +39,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  var cblack = Colors.black;
   bool statusChangeByUser = false;
 
   BluetoothAdapterState btState = BluetoothAdapterState.unknown;
@@ -49,6 +47,7 @@ class _HomePageState extends State<HomePage> {
   late BluetoothDevice asiDoughDevice;
   bool isScanning = false;
   BluetoothAdapterState  btDeviceState = BluetoothAdapterState.unknown;
+bool serviceConnected = false;
   BluetoothCharacteristic? startStopCharactaristics = null;
   DoughServcieStatusEnum doughServcieStatus = DoughServcieStatusEnum.idle;
   int doughHeight = 0;
@@ -62,7 +61,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final my_color_variable = Colors.red;
     return Center(
       child: Column(children: [
         // ElevatedButton(
@@ -104,7 +102,7 @@ class _HomePageState extends State<HomePage> {
                         margin: const EdgeInsets.symmetric(horizontal: 10.0),
                         child: Text(
                           btState == BluetoothAdapterState.off ? 'BT Off' : 'BT On',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
@@ -127,7 +125,7 @@ class _HomePageState extends State<HomePage> {
                           case BluetoothAdapterState.on:
                           //case BluetoothAdapterState.unauthorized:
                           //case BluetoothAdapterState.unavailable:
-                            debugPrint('Scanning for Devcie ...');
+                            debugPrint('TAP - Scanning for Devices ...');
                             await ScanBleDoughDevice(flutterBluePlus);
                             break;
                           // case BluetoothAdapterState.turningOff:
@@ -150,22 +148,22 @@ class _HomePageState extends State<HomePage> {
                         //Device   Icon
                         Icon(
                           size: 30.0,
-                          doughServcieStatus == DoughServcieStatusEnum.Connected
+                          (serviceConnected)
                               ? Icons.bluetooth_connected
                               : Icons.bluetooth_outlined,
-                          color: doughServcieStatus == DoughServcieStatusEnum.Connected
+                          color: (serviceConnected)
                               ? Colors.blue
                               : Colors.grey,
                         ),
                         Container(
                           margin: const EdgeInsets.symmetric(horizontal: 10.0),
                           child: Text(
-                            doughServcieStatus == DoughServcieStatusEnum.Connected
+                            (serviceConnected)
                                 ? 'Connected'
                                 : isScanning
                                   ? 'Connecting ...'
                                   : 'Not Connected',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: Colors.black,
@@ -196,34 +194,54 @@ class _HomePageState extends State<HomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                    ),
-                    onPressed: (btDeviceState != BluetoothAdapterState.on)
-                        ? null
-                        : () async {
-                          if ((startStopCharactaristics != null) && (btDeviceState == BluetoothAdapterState.on)) {
-                            if ((doughServcieStatus == DoughServcieStatusEnum.idle) || (doughServcieStatus == DoughServcieStatusEnum.Connected)) {
-                                debugPrint('Start Fermentation Monitoring.');
-                                await startStopCharactaristics?.write([0x1]);
-                            } else {
-                              debugPrint('Stop Fermentation Monitoring.');
-                              await startStopCharactaristics?.write([0x0]);
-                            }
-                            }
-                          },
-                    child: Text(((doughServcieStatus == DoughServcieStatusEnum.idle) || (doughServcieStatus == DoughServcieStatusEnum.Connected)) ? 'Start' : 'Stop',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: btDeviceState == BluetoothAdapterState.on ? Colors.black : Colors.grey,
-                        )),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                          child:ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueAccent[100], // background color
+                                foregroundColor: Colors.white, // text color
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 5),
+                              ),
+                              onPressed: () {
+                                serviceConnected
+                                    ? () async {
+                                  if ((startStopCharactaristics != null) &&
+                                      (btDeviceState == BluetoothAdapterState.on)) {
+                                    if (doughServcieStatus == DoughServcieStatusEnum.idle || serviceConnected) {
+                                      debugPrint('Start Fermentation Monitoring.');
+                                      await startStopCharactaristics?.write([0x1]);
+                                    } else {
+                                      debugPrint('Stop Fermentation Monitoring.');
+                                      await startStopCharactaristics?.write([0x0]);
+                                    }
+                                  }
+                                }
+                                    : null; //disable
+                              },
+                              child: Text(
+                                  (doughServcieStatus == DoughServcieStatusEnum.idle || serviceConnected)
+                                      ? 'Start'
+                                      : 'Stop',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: serviceConnected
+                                        ? Colors.black
+                                        : Colors.grey,
+                                  )
+                              )
+                          ),
                   ),
                   //Fermentation Status -   idle, Fermenting, ReachedDesiredFerm, OverFerm, Error
                   Container(
                     decoration:
-                        BoxDecoration(color: doughServcieStatuColors[doughServcieStatus.index], border: Border.all(color: Colors.lightBlue, width: 2.0)),
+                        BoxDecoration(
+                            color: doughServcieStatuColors[doughServcieStatus.index],
+                            border: Border.all(color: Colors.lightBlue, width: 2.0)),
                     margin: const EdgeInsets.symmetric(vertical: 5.0),
                     child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
                       //BT Icon
@@ -231,7 +249,7 @@ class _HomePageState extends State<HomePage> {
                         size: 30.0,
                         doughServcieStatus == DoughServcieStatusEnum.idle
                             ? Icons.hourglass_empty
-                            :doughServcieStatus == DoughServcieStatusEnum.Connected
+                            : serviceConnected
                             ? Icons.bluetooth_connected
                               : doughServcieStatus == DoughServcieStatusEnum.Fermenting
                                   ? Icons.hourglass_bottom
@@ -247,7 +265,7 @@ class _HomePageState extends State<HomePage> {
                         child: Text(
                           doughServcieStatus == DoughServcieStatusEnum.idle
                               ? 'Idle'
-                              : doughServcieStatus == DoughServcieStatusEnum.Connected
+                              : serviceConnected
                                 ? 'Connected'
                                 : doughServcieStatus == DoughServcieStatusEnum.Fermenting
                                     ? 'Fermenting'
@@ -256,7 +274,7 @@ class _HomePageState extends State<HomePage> {
                                         : doughServcieStatus == DoughServcieStatusEnum.OverFerm
                                             ? 'Over Fermentation'
                                             : 'Error',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
@@ -357,100 +375,106 @@ class _HomePageState extends State<HomePage> {
     // Listen to scan results
     StreamSubscription<List<ScanResult>> scanSubsc = FlutterBluePlus.onScanResults.listen((results) async {
 
-      debugPrint('Device Scan Result size;${results.length}');
+    debugPrint('Device Scan Result size;${results.length}');
 
-      // do something with scan results
-      // for (ScanResult result in results) {
-      if (results.isNotEmpty) {
-        ScanResult result = results.last; // the most recently found device
+    if (results.isNotEmpty) {
+      ScanResult result = results.last; // the most recently found device
 
-        debugPrint('\'${result.device.platformName}\' with rssi: ${result.rssi}');
+      debugPrint('\'${result.device.platformName}\' with rssi: ${result.rssi}');
 
-        if (result.device.platformName == DOUGH_DEVICE_NAME) {
-          asiDoughDevice = result.device;
-          str = asiDoughDevice.platformName;
-          debugPrint('\'${str}\' Found Asi Dough Device, Connecting....');
+      if (result.device.platformName == DOUGH_DEVICE_NAME) {
+        asiDoughDevice = result.device;
+        serviceConnected = true;
+        str = asiDoughDevice.platformName;
+        debugPrint('\'$str\' Found Asi Dough Device, Connecting....');
 
-          //Subscribe for device connection/disconnection
-          asiDoughDevice.connectionState.listen((state) {
+        //Subscribe for device connection/disconnection
+        asiDoughDevice.connectionState.listen((state) {
 
-            debugPrint('Device status changed to \'${state.name}\'');
+          debugPrint('Device status changed to \'${state.name}\'');
 
-            if (state == BluetoothConnectionState.connected) {
-              discoverBleDoughServices();
-            } else if (state == BluetoothConnectionState.disconnected) {
+          if (state == BluetoothConnectionState.connected) {
+            // print("Connection established with Asi Dough Device.");
 
-              if (!statusChangeByUser) {
-                setState(() {
-                  doughServcieStatus = DoughServcieStatusEnum.idle;
-                });
-                Future.delayed(const Duration(milliseconds: 5000), () {
-                  asiDoughDevice.connect();
-                });
-              }
-            }
-          });
-
-          await asiDoughDevice.connect();
-
-          if (Platform.isAndroid) {
-            await result.device.requestMtu(512); // Example value
-          }
-
-          // Stop scanning
-          debugPrint('Stop scanning (found my device)');
-          await FlutterBluePlus.stopScan();
-
-  /*
-          // Subscribe to connection changes
-          deviceStateSubsc = FlutterBluePlus.adapterState.listen((state) async {
             setState(() {
-              btDeviceState = state;
+              serviceConnected = true;
             });
 
-            debugPrint('Device status changed to \'${state.name}\'');
+            //set device settings
+            if (Platform.isAndroid) {
 
-            if (state == BluetoothAdapterState.on) {
-              //Get Service
-              await discoverBleDoughServices();
+              final subscription = asiDoughDevice!.mtu.listen((int mtu) {
+                // iOS: initial value is always 23, but iOS will quickly negotiate a higher value
+                int mtuNow = asiDoughDevice!.mtuNow;
+                debugPrint('Device MTU changed to $mtu , $mtuNow');
+              });
 
-            } else if (state == BluetoothAdapterState.off) {
-              //try to reconnect
-              //Todo - Put a Timer
-              if (!statusChangeByUser) {
-                await result.device.connect();
-              }
-            } else {
-              debugPrint('Device status changed to \'${state.name}\'  --> Not Handled.');
+              //Request long messages
+              asiDoughDevice!.requestMtu(512);
+
+              // asiDoughDevice.requestConnectionPriority();
             }
-          });
-*/
-          // break;
+
+            //look for services
+            discoverBleDoughServices();
+
+          } else if (state == BluetoothConnectionState.disconnected) {
+
+            if (!statusChangeByUser) {
+              setState(() {
+                serviceConnected = false;
+              });
+              /*Timer.periodic(const Duration(seconds: 7), (timer) {
+            //try to reconnect
+            if (doughServcieStatus == DoughServcieStatusEnum.idle) {
+              debugPrint('Timer \'${timer.tick}\' try to connect');
+              asiDoughDevice.connect();
+            } else {
+              debugPrint('Connected cancel timer.');
+              timer.cancel();
+            }
+          });*/
+            }
+          }
+        });
+
+        await asiDoughDevice!.connect(
+            autoConnect: true,
+            mtu:null,
+            timeout: Duration(seconds: 15)
+        ).catchError((error) {
+          print("Failed to connect Asi Dough Device: $error");
         }
+        );
+
+        // Stop scanning
+        debugPrint('Stop scanning (found my device)');
+        await FlutterBluePlus.stopScan(); //ToDo - Should we stop the scan?
       }
-    },
-      onError: (error) => print("Error inn scan results: $error"),
-    );
+    }
+      },
+        onError: (error) => print("Error inn scan results: $error"),
+      );
 
-    // cleanup: cancel subscription when scanning stops
-    FlutterBluePlus.cancelWhenScanComplete(scanSubsc);
+      // cleanup: cancel subscription when scanning stops
+      FlutterBluePlus.cancelWhenScanComplete(scanSubsc);
 
-    //start actual scan
-    isScanning = true;
-    FlutterBluePlus.startScan(
+      //start actual scan
+      isScanning = true;
+      FlutterBluePlus.startScan(
         // withServices:[Guid(DOUGH_HEIGHT_SERVICE_UUID)], // match any of the specified services
-        withNames:["Asi Dough Height"], // *or* any of the specified names
-        timeout: const Duration(seconds: 5)
-    ).catchError((error) {
-      print("Error starting scan: $error");
-    });
+          withNames:["Asi Dough Height"], // *or* any of the specified names
+          timeout: const Duration(seconds: 5)
+      ).catchError((error) {
+        print("Error starting scan: $error");
+      });
 
-    // wait for scanning to stop
-    await FlutterBluePlus.isScanning.where((val) => val == false).first;
-    setState(() {
-      isScanning = false;
-    });
-  }
+      // wait for scanning to stop
+      await FlutterBluePlus.isScanning.where((val) => val == false).first;
+      setState(() {
+        isScanning = false;
+      });
+    }
 
   discoverBleDoughServices() async {
     List<BluetoothService> services = await asiDoughDevice.discoverServices();
@@ -458,6 +482,8 @@ class _HomePageState extends State<HomePage> {
     //Look for Dough Height Service
     for (var service in services) {
       if (service.uuid.toString().compareTo(DOUGH_HEIGHT_SERVICE_UUID) == 0) {
+        //Service Found, Mark Connected
+        serviceConnected = true;
         debugPrint('Found the Dough Height Service');
         await ReadCharacteristics(service);
       }
@@ -465,8 +491,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> ReadCharacteristics(BluetoothService service) async {
+
     //Get Characteristics
-    var characteristics = service.characteristics;
+    List<BluetoothCharacteristic> characteristics = service.characteristics;
     for (BluetoothCharacteristic character in characteristics) {
       debugPrint('Found Characteristic ${character.uuid}');
       switch (character.uuid.toString()) {
@@ -474,17 +501,17 @@ class _HomePageState extends State<HomePage> {
           {
             if (character.properties.read) {
               List<int> value = await character.read();
-              debugPrint('Read DoughServcieStatus value ${character.uuid} --> $value');
+              StatusMessage statusValue = GetStatusCharacteristics(value);
+              debugPrint('Read Dough Service Status Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
               setState(() {
-                StatusMessage statusValue = GetStatusCharacteristics(value);
                 doughServcieStatus = DoughServcieStatusEnum.values[statusValue.status];
               });
             }
             if (!character.isNotifying) {
               statusCharSubsc = character.value.listen((value) {
-                debugPrint('Listen DoughServcieStatus Value ${character.uuid} --> $value');
+                StatusMessage statusValue = GetStatusCharacteristics(value);
+                debugPrint('Listen Dough Service Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
                 setState(() {
-                  StatusMessage statusValue = GetStatusCharacteristics(value);
                   doughServcieStatus = DoughServcieStatusEnum.values[statusValue.status];
                 });
               });
@@ -498,16 +525,18 @@ class _HomePageState extends State<HomePage> {
           {
             if (character.properties.read) {
               List<int> value = await character.read();
-              debugPrint('Read Dough Height ${character.uuid} --> $value');
+              int intTmpVal = GetIntCharacteristics(value);
+              debugPrint('Read Dough Height: \'$intTmpVal\'');
               setState(() {
-                doughHeight = GetIntCharacteristics(value);
+                doughHeight = intTmpVal;
               });
             }
             if (!character.isNotifying) {
               heightCharSubsc = character.value.listen((value) {
-                debugPrint('Listen Dough Height ${character.uuid} --> $value');
+                int intTmpVal = GetIntCharacteristics(value);
+                debugPrint('Listen Dough Height: \'$intTmpVal\'');
                 setState(() {
-                  doughHeight = GetIntCharacteristics(value);
+                  doughHeight = intTmpVal;
                 });
               });
               Future.delayed(const Duration(milliseconds: 1000), () {
@@ -525,18 +554,18 @@ class _HomePageState extends State<HomePage> {
           {
             if (character.properties.read) {
               List<int> value = await character.read();
-              debugPrint('Read Dough Fermentation Percentage ${character.uuid} --> $value');
+              double dblTempVal = (GetDoubleCharacteristics(value) * 100);
+              debugPrint('Read Dough Fermentation Percentage: \'${dblTempVal.toStringAsFixed(3)}\'');
               setState(() {
-                fermPrecentage = (GetDoubleCharacteristics(value) * 100);
-                debugPrint(fermPrecentage.toStringAsFixed(3));
+                fermPrecentage = dblTempVal;
               });
             }
             if (!character.isNotifying) {
               heightCharSubsc = character.value.listen((value) {
-                debugPrint('Listen Dough Fermentation Percentage ${character.uuid} --> $value');
+                double dblTempVal = (GetDoubleCharacteristics(value) * 100);
+                debugPrint('Listen Dough Fermentation Percentage: \'${dblTempVal.toStringAsFixed(3)}\'');
                 setState(() {
-                  fermPrecentage = (GetDoubleCharacteristics(value) * 100);
-                  debugPrint(fermPrecentage.toStringAsFixed(3));
+                  fermPrecentage = dblTempVal;
                 });
               });
               Future.delayed(const Duration(milliseconds: 1500), () {
@@ -553,11 +582,15 @@ class _HomePageState extends State<HomePage> {
     //heightCharSub
     int intValue = 0;
     if (value.isNotEmpty) {
-      String stringValue = const AsciiDecoder().convert(value);
-      if (stringValue != 'N/A') {
-        intValue = int.parse(stringValue);
+      try {
+        String stringValue = const AsciiDecoder().convert(value);
+        if (stringValue != 'N/A') {
+          intValue = int.parse(stringValue);
+        }
+      } catch (ex) {
+        debugPrint('Parse Int characteristics Exception: \'${ex}\'');
       }
-    }
+  }
     return intValue;
   }
 
@@ -565,9 +598,13 @@ class _HomePageState extends State<HomePage> {
     //heightCharSub
     double doubleValue = 0.0;
     if ((value.isNotEmpty) && (value.length < 10)) {
-      String stringValue = const AsciiDecoder().convert(value);
-      if (stringValue != 'N/A') {
-        doubleValue = double.parse(stringValue);
+      try {
+        String stringValue = const AsciiDecoder().convert(value);
+        if (stringValue != 'N/A') {
+          doubleValue = double.parse(stringValue);
+        }
+      } catch (ex) {
+        debugPrint('Parse Double characteristics Exception: \'${ex}\'');
       }
     }
     return doubleValue;
@@ -577,10 +614,14 @@ class _HomePageState extends State<HomePage> {
 
     StatusMessage statusValue = StatusMessage.EmptyConstructor();
     if (value.isNotEmpty) {
-      String stringValue = const AsciiDecoder().convert(value);
-      if (stringValue != 'N/A') {
-        final statusMap = jsonDecode(stringValue) as Map<String, dynamic>;
-        statusValue = StatusMessage.fromJson(statusMap);
+      try {
+        String stringValue = const AsciiDecoder().convert(value);
+        if (stringValue != 'N/A') {
+          final statusMap = jsonDecode(stringValue) as Map<String, dynamic>;
+          statusValue = StatusMessage.fromJson(statusMap);
+        }
+      } catch (ex) {
+        debugPrint('Parse Status characteristics Exception: \'${ex}\'');
       }
     }
     return statusValue;
@@ -589,9 +630,9 @@ class _HomePageState extends State<HomePage> {
 
   void DisconnectingDevice() {
     debugPrint('Disconnecting from device, remove subscriptions');
-    heightCharSubsc.cancel();
-    statusCharSubsc.cancel();
-    asiDoughDevice.disconnect();
+    // heightCharSubsc.cancel();
+    // statusCharSubsc.cancel();
+    asiDoughDevice.disconnect();//ToDo - does it affect the reconnect?
   }
 
   // @override
