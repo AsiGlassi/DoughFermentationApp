@@ -29,6 +29,9 @@ final List<Color> doughServcieStatuColors = <Color>[
 ];
 const Color deviceConnectedColor = Color.fromARGB(0xFF, 0xAC, 0x61, 0x99); //GRB 0xAC6199
 
+StreamSubscription<BluetoothAdapterState>? adapterStateSubsc = null;
+BluetoothDevice? asiDoughDevice = null;
+
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -44,18 +47,15 @@ class _HomePageState extends State<HomePage> {
   BluetoothAdapterState btState = BluetoothAdapterState.unknown;
 
   FlutterBluePlus flutterBluePlus = FlutterBluePlus();
-  late BluetoothDevice asiDoughDevice;
   bool isScanning = false;
   BluetoothAdapterState  btDeviceState = BluetoothAdapterState.unknown;
-bool serviceConnected = false;
+  bool serviceConnected = false;
   BluetoothCharacteristic? startStopCharactaristics = null;
   DoughServcieStatusEnum doughServcieStatus = DoughServcieStatusEnum.idle;
   int doughHeight = 0;
   double fermPrecentage = 0.0;
 
   //event subscription
-  late StreamSubscription<BluetoothAdapterState> adapterStateSubsc;
-  late StreamSubscription<BluetoothAdapterState> deviceStateSubsc;
   late StreamSubscription<List<int>> statusCharSubsc;
   late StreamSubscription<List<int>> heightCharSubsc;
 
@@ -207,25 +207,22 @@ bool serviceConnected = false;
                                 padding: const EdgeInsets.symmetric(vertical: 5),
                               ),
                               onPressed: () {
-                                serviceConnected
-                                    ? () async {
-                                  if ((startStopCharactaristics != null) &&
-                                      (btDeviceState == BluetoothAdapterState.on)) {
-                                    if (doughServcieStatus == DoughServcieStatusEnum.idle || serviceConnected) {
+                                if (serviceConnected) {
+                                  if ((startStopCharactaristics != null) && serviceConnected) {
+                                    if (doughServcieStatus == DoughServcieStatusEnum.idle) {
                                       debugPrint('Start Fermentation Monitoring.');
-                                      await startStopCharactaristics?.write([0x1]);
+                                      startStopCharactaristics!.write([0x1]);
                                     } else {
                                       debugPrint('Stop Fermentation Monitoring.');
-                                      await startStopCharactaristics?.write([0x0]);
+                                      startStopCharactaristics!.write([0x0]);
                                     }
                                   }
-                                }
-                                    : null; //disable
+                                }; //disable
                               },
                               child: Text(
-                                  (doughServcieStatus == DoughServcieStatusEnum.idle || serviceConnected)
-                                      ? 'Start'
-                                      : 'Stop',
+                                  (doughServcieStatus == DoughServcieStatusEnum.idle)
+                                  ? 'Start'
+                                  : 'Stop',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -258,7 +255,9 @@ bool serviceConnected = false;
                                       : doughServcieStatus == DoughServcieStatusEnum.OverFerm
                                           ? Icons.upload_sharp
                                           : Icons.error_outline,
-                        color: btState == DoughServcieStatusEnum.Error ? Colors.red : Colors.blue,
+                        color: btState == DoughServcieStatusEnum.Error
+                            ? Colors.red
+                            : Colors.blue,
                       ),
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 10.0),
@@ -329,6 +328,10 @@ bool serviceConnected = false;
 
     //set BT logger settings
     FlutterBluePlus.setLogLevel(LogLevel.info, color:false);
+    if (adapterStateSubsc != null) {
+      // Already subscribed to BT status changes.
+      return;
+    }
 
     //listen bluetooth current state
     adapterStateSubsc = FlutterBluePlus.adapterState.listen((state) {
@@ -366,6 +369,9 @@ bool serviceConnected = false;
   // }
 
   ScanBleDoughDevice(FlutterBluePlus flutterBluePlus) async {
+
+    if (asiDoughDevice != null) return; // Already connected
+
     String str = 'N/A';
 
     // Start scanning
@@ -385,11 +391,11 @@ bool serviceConnected = false;
       if (result.device.platformName == DOUGH_DEVICE_NAME) {
         asiDoughDevice = result.device;
         serviceConnected = true;
-        str = asiDoughDevice.platformName;
+        str = asiDoughDevice!.platformName;
         debugPrint('\'$str\' Found Asi Dough Device, Connecting....');
 
         //Subscribe for device connection/disconnection
-        asiDoughDevice.connectionState.listen((state) {
+        asiDoughDevice!.connectionState.listen((state) {
 
           debugPrint('Device status changed to \'${state.name}\'');
 
@@ -425,62 +431,62 @@ bool serviceConnected = false;
                 serviceConnected = false;
               });
               /*Timer.periodic(const Duration(seconds: 7), (timer) {
-            //try to reconnect
-            if (doughServcieStatus == DoughServcieStatusEnum.idle) {
-              debugPrint('Timer \'${timer.tick}\' try to connect');
-              asiDoughDevice.connect();
-            } else {
-              debugPrint('Connected cancel timer.');
-              timer.cancel();
-            }
+                //try to reconnect
+                if (doughServcieStatus == DoughServcieStatusEnum.idle) {
+                  debugPrint('Timer \'${timer.tick}\' try to connect');
+                  asiDoughDevice!.connect();
+                } else {
+                  debugPrint('Connected cancel timer.');
+                  timer.cancel();
+                }
           });*/
             }
           }
         });
 
-        await asiDoughDevice!.connect(
+        asiDoughDevice!.connect(
             autoConnect: true,
             mtu:null,
-            timeout: Duration(seconds: 15)
+            timeout: const Duration(seconds: 15)
         ).catchError((error) {
           print("Failed to connect Asi Dough Device: $error");
-        }
-        );
+        });
 
         // Stop scanning
         debugPrint('Stop scanning (found my device)');
         await FlutterBluePlus.stopScan(); //ToDo - Should we stop the scan?
       }
     }
-      },
-        onError: (error) => print("Error inn scan results: $error"),
-      );
+    },
+      onError: (error) => print("Error inn scan results: $error"),
+    );
 
-      // cleanup: cancel subscription when scanning stops
-      FlutterBluePlus.cancelWhenScanComplete(scanSubsc);
+    // cleanup: cancel subscription when scanning stops
+    FlutterBluePlus.cancelWhenScanComplete(scanSubsc);
 
-      //start actual scan
-      isScanning = true;
-      FlutterBluePlus.startScan(
-        // withServices:[Guid(DOUGH_HEIGHT_SERVICE_UUID)], // match any of the specified services
-          withNames:["Asi Dough Height"], // *or* any of the specified names
-          timeout: const Duration(seconds: 5)
-      ).catchError((error) {
-        print("Error starting scan: $error");
-      });
+    //start actual scan
+    isScanning = true;
+    FlutterBluePlus.startScan(
+      // withServices:[Guid(DOUGH_HEIGHT_SERVICE_UUID)], // match any of the specified services
+        withNames:["Asi Dough Height"], // *or* any of the specified names (withKeywords)
+        timeout: const Duration(seconds: 5)
+    ).catchError((error) {
+      print("Error starting scan: $error");
+    });
 
-      // wait for scanning to stop
-      await FlutterBluePlus.isScanning.where((val) => val == false).first;
-      setState(() {
-        isScanning = false;
-      });
-    }
+    // wait for scanning to stop
+    await FlutterBluePlus.isScanning.where((val) => val == false).first;
+    setState(() {
+      isScanning = false;
+    });
+  }
 
   discoverBleDoughServices() async {
-    List<BluetoothService> services = await asiDoughDevice.discoverServices();
+    if (asiDoughDevice == null) return;
+    List<BluetoothService>? services = await asiDoughDevice?.discoverServices();
 
     //Look for Dough Height Service
-    for (var service in services) {
+    for (var service in services!) {
       if (service.uuid.toString().compareTo(DOUGH_HEIGHT_SERVICE_UUID) == 0) {
         //Service Found, Mark Connected
         serviceConnected = true;
@@ -632,7 +638,7 @@ bool serviceConnected = false;
     debugPrint('Disconnecting from device, remove subscriptions');
     // heightCharSubsc.cancel();
     // statusCharSubsc.cancel();
-    asiDoughDevice.disconnect();//ToDo - does it affect the reconnect?
+    asiDoughDevice?.disconnect();//ToDo - does it affect the reconnect?
   }
 
   // @override
