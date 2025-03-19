@@ -58,6 +58,7 @@ class _HomePageState extends State<HomePage> {
   //event subscription
   late StreamSubscription<List<int>> statusCharSubsc;
   late StreamSubscription<List<int>> heightCharSubsc;
+  StreamSubscription<List<ScanResult>>? scanSubsc = null;
 
   @override
   Widget build(BuildContext context) {
@@ -264,15 +265,13 @@ class _HomePageState extends State<HomePage> {
                         child: Text(
                           doughServcieStatus == DoughServcieStatusEnum.idle
                               ? 'Idle'
-                              : serviceConnected
-                                ? 'Connected'
-                                : doughServcieStatus == DoughServcieStatusEnum.Fermenting
-                                    ? 'Fermenting'
-                                    : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
-                                        ? 'Done'
-                                        : doughServcieStatus == DoughServcieStatusEnum.OverFerm
-                                            ? 'Over Fermentation'
-                                            : 'Error',
+                             : doughServcieStatus == DoughServcieStatusEnum.Fermenting
+                                ? 'Fermenting'
+                                : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
+                                    ? 'Done'
+                                    : doughServcieStatus == DoughServcieStatusEnum.OverFerm
+                                        ? 'Over Fermentation'
+                                        : 'Error',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -368,117 +367,169 @@ class _HomePageState extends State<HomePage> {
   //   }
   // }
 
-  ScanBleDoughDevice(FlutterBluePlus flutterBluePlus) async {
+  Future<void> ScanBleDoughDeviceTimer(FlutterBluePlus flutterBluePlus) async {
+    var timer = Timer.periodic(const Duration(seconds: 30), (timer) async {
 
-    if (asiDoughDevice != null) return; // Already connected
+      //found device in last iteration, stop timer
+      if (asiDoughDevice != null) {
+        //stop conn timer
+        timer.cancel();
+        return;
+      }
 
-    String str = 'N/A';
+      ScanBleDoughDevice(flutterBluePlus);
+    });
+  }
 
-    // Start scanning
-    // await requestBluetoothPermission();
-    debugPrint('Start scanning for devices.');
+  Future<void> ScanBleDoughDevice(FlutterBluePlus flutterBluePlus) async {
 
-    // Listen to scan results
-    StreamSubscription<List<ScanResult>> scanSubsc = FlutterBluePlus.onScanResults.listen((results) async {
+    bool needToScan = (asiDoughDevice == null);
+    bool needToReconnect = (asiDoughDevice != null && asiDoughDevice!.isConnected == false);
 
-    debugPrint('Device Scan Result size;${results.length}');
+    while (needToScan || needToReconnect) {
 
-    if (results.isNotEmpty) {
-      ScanResult result = results.last; // the most recently found device
+      //case of enforce scan
+      if (needToReconnect) {
+        //Object already exist, no need to scan, try to connect
+        ConnectDevice(asiDoughDevice!);
+        return;
+      }
 
-      debugPrint('\'${result.device.platformName}\' with rssi: ${result.rssi}');
+      // Start scanning
+      // await requestBluetoothPermission();
+      debugPrint('Start scanning for devices.');
 
-      if (result.device.platformName == DOUGH_DEVICE_NAME) {
-        asiDoughDevice = result.device;
-        serviceConnected = true;
-        str = asiDoughDevice!.platformName;
-        debugPrint('\'$str\' Found Asi Dough Device, Connecting....');
+      // Listen to scan results
+      scanSubsc ??= FlutterBluePlus.onScanResults.listen((results) async {
+        debugPrint('Device Scan Result size;${results.length}');
 
-        //Subscribe for device connection/disconnection
-        asiDoughDevice!.connectionState.listen((state) {
+        if (results.isNotEmpty) {
+          ScanResult result = results.last; // the most recently found device
 
-          debugPrint('Device status changed to \'${state.name}\'');
+          debugPrint('\'${result.device.platformName}\' with rssi: ${result.rssi}');
 
-          if (state == BluetoothConnectionState.connected) {
-            // print("Connection established with Asi Dough Device.");
+          if (result.device.platformName == DOUGH_DEVICE_NAME) {
+            asiDoughDevice = result.device;
+            await asiDoughDevice!.connect();
+            serviceConnected = true;
+            debugPrint('\'$asiDoughDevice!.platformName\' Found Asi Dough Device, stop scan and Connect.');
 
-            setState(() {
-              serviceConnected = true;
+            // Stop scanning
+            await FlutterBluePlus.stopScan();
+
+            //Subscribe for device connection/disconnection
+            StreamSubscription<BluetoothConnectionState> asiDoughConnSubsc = onDeviceConnectionChange();
+
+            //Connect to the device
+            ConnectDevice(asiDoughDevice!);
+          }
+        }
+        },
+          onError: (error) => print("Error inn scan results: $error"),
+        );
+      // cleanup: cancel subscription when scanning stops
+      // FlutterBluePlus.cancelWhenScanComplete(scanSubsc!);
+
+      //start actual scan
+      isScanning = true;
+      FlutterBluePlus.startScan(
+        // withServices:[Guid(DOUGH_HEIGHT_SERVICE_UUID)], // match any of the specified services
+          withNames: ["Asi Dough Height"],
+          // *or* any of the specified names (withKeywords)
+          timeout: const Duration(seconds: 5)
+      ).catchError((error) {
+        print("Error starting scan: $error");
+      });
+
+      // wait for scanning to stop
+      await FlutterBluePlus.isScanning
+          .where((val) => val == false)
+          .first;
+      setState(() {
+        isScanning = false;
+      });
+
+      // No device found, wait for 30 seconds before scanning again
+      await Future.delayed(const Duration(seconds: 30));
+
+      needToScan = (asiDoughDevice == null);
+      needToReconnect = (asiDoughDevice != null && asiDoughDevice!.isConnected == false);
+
+    }
+  }
+
+  StreamSubscription<BluetoothConnectionState> onDeviceConnectionChange() {
+
+    return asiDoughDevice!.connectionState.listen((state) {
+
+        debugPrint('Device status changed to \'${state.name}\'');
+
+        if (state == BluetoothConnectionState.connected) {
+          // print("Connection established with Asi Dough Device.");
+
+          setState(() {
+            serviceConnected = true;
+          });
+
+          //set device settings
+          if (Platform.isAndroid) {
+
+            final subscription = asiDoughDevice!.mtu.listen((int mtu) {
+              // iOS: initial value is always 23, but iOS will quickly negotiate a higher value
+              int mtuNow = asiDoughDevice!.mtuNow;
+              debugPrint('Device MTU changed to $mtu , $mtuNow');
             });
 
-            //set device settings
-            if (Platform.isAndroid) {
+            //Request long messages
+            asiDoughDevice!.requestMtu(512);
 
-              final subscription = asiDoughDevice!.mtu.listen((int mtu) {
-                // iOS: initial value is always 23, but iOS will quickly negotiate a higher value
-                int mtuNow = asiDoughDevice!.mtuNow;
-                debugPrint('Device MTU changed to $mtu , $mtuNow');
-              });
-
-              //Request long messages
-              asiDoughDevice!.requestMtu(512);
-
-              // asiDoughDevice.requestConnectionPriority();
-            }
-
-            //look for services
-            discoverBleDoughServices();
-
-          } else if (state == BluetoothConnectionState.disconnected) {
-
-            if (!statusChangeByUser) {
-              setState(() {
-                serviceConnected = false;
-              });
-              /*Timer.periodic(const Duration(seconds: 7), (timer) {
-                //try to reconnect
-                if (doughServcieStatus == DoughServcieStatusEnum.idle) {
-                  debugPrint('Timer \'${timer.tick}\' try to connect');
-                  asiDoughDevice!.connect();
-                } else {
-                  debugPrint('Connected cancel timer.');
-                  timer.cancel();
-                }
-          });*/
-            }
+            // asiDoughDevice.requestConnectionPriority();
           }
-        });
 
-        asiDoughDevice!.connect(
-            autoConnect: true,
-            mtu:null,
-            timeout: const Duration(seconds: 15)
-        ).catchError((error) {
-          print("Failed to connect Asi Dough Device: $error");
-        });
+          //look for services
+          discoverBleDoughServices();
 
-        // Stop scanning
-        debugPrint('Stop scanning (found my device)');
-        await FlutterBluePlus.stopScan(); //ToDo - Should we stop the scan?
-      }
+        } else if (state == BluetoothConnectionState.disconnected) {
+
+          if (!statusChangeByUser) {
+            setState(() {
+              serviceConnected = false;
+            });
+
+            Timer.periodic(const Duration(seconds: 7), (timer) {
+              //try to reconnect
+              if (doughServcieStatus == DoughServcieStatusEnum.idle) {
+                debugPrint('Timer \'${timer.tick}\' try to connect');
+                //Connect to the device
+                ConnectDevice(asiDoughDevice!);
+              } else {
+                debugPrint('Connected cancel timer.');
+                timer.cancel();
+              }
+        });
+          }
+        }
+      });
+  }
+
+  Future<void> ConnectDevice(BluetoothDevice device) async {
+    try {
+      await asiDoughDevice!.connect(
+          autoConnect: true,
+          mtu:null,
+          timeout: const Duration(seconds: 15)
+      ).catchError((error) {
+        print("Failed to connect Asi Dough Device: $error");
+      });
+
+    } catch (e) {
+      debugPrint("Connection failed: $e");
     }
-    },
-      onError: (error) => print("Error inn scan results: $error"),
-    );
+  }
 
-    // cleanup: cancel subscription when scanning stops
-    FlutterBluePlus.cancelWhenScanComplete(scanSubsc);
-
-    //start actual scan
-    isScanning = true;
-    FlutterBluePlus.startScan(
-      // withServices:[Guid(DOUGH_HEIGHT_SERVICE_UUID)], // match any of the specified services
-        withNames:["Asi Dough Height"], // *or* any of the specified names (withKeywords)
-        timeout: const Duration(seconds: 5)
-    ).catchError((error) {
-      print("Error starting scan: $error");
-    });
-
-    // wait for scanning to stop
-    await FlutterBluePlus.isScanning.where((val) => val == false).first;
-    setState(() {
-      isScanning = false;
-    });
+  void disconnect() {
+    asiDoughDevice?.disconnect();
+    asiDoughDevice = null;
   }
 
   discoverBleDoughServices() async {
