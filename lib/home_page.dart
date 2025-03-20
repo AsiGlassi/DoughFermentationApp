@@ -2,14 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 // import 'package:flutter/cupertino.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:dough_fermentation/Messages.dart';
 
 import 'dart:async';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-
-
 
 const String DOUGH_DEVICE_NAME = "Asi Dough Height";
 const String DOUGH_HEIGHT_SERVICE_UUID = "3ee2ffbe-e236-41f2-9c40-d44563ddc614";
@@ -20,18 +19,18 @@ const String CHARACTERISTIC_STATUS_UUID = "a1990b88-249f-45b2-a0b2-ba0f1f90ca0a"
 const String CHARACTERISTIC_DESIRED_FERMENTATION_UUID = "b1f4f8ec-efd5-4fd9-be66-09bbb9baa1da";
 
 enum DoughServcieStatusEnum { idle, Fermenting, ReachedDesiredFerm, OverFerm, Error }
+
 final List<Color> doughServcieStatuColors = <Color>[
   const Color.fromARGB(0xFF, 0xFF, 0xFF, 0xFF), //GRB 0xFFFFFF,
   const Color.fromARGB(0xFF, 0xFF, 0xFF, 0x88), //GRB 0xFFFF88
   const Color.fromARGB(0xFF, 0x33, 0xFF, 0x33), //GRB 0x33FF33
   const Color.fromARGB(0xFF, 0xFF, 0x75, 0x33), //GRB 0xFF7533
-  const Color.fromARGB(0xFF, 0xEE, 0x33, 0x33),  //GRB 0xEE3333
+  const Color.fromARGB(0xFF, 0xEE, 0x33, 0x33), //GRB 0xEE3333
 ];
 const Color deviceConnectedColor = Color.fromARGB(0xFF, 0xAC, 0x61, 0x99); //GRB 0xAC6199
 
 StreamSubscription<BluetoothAdapterState>? adapterStateSubsc = null;
 BluetoothDevice? asiDoughDevice = null;
-
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -41,19 +40,19 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-
   bool statusChangeByUser = false;
 
   BluetoothAdapterState btState = BluetoothAdapterState.unknown;
 
   FlutterBluePlus flutterBluePlus = FlutterBluePlus();
   bool isScanning = false;
-  BluetoothAdapterState  btDeviceState = BluetoothAdapterState.unknown;
+  BluetoothAdapterState btDeviceState = BluetoothAdapterState.unknown;
   bool serviceConnected = false;
   BluetoothCharacteristic? startStopCharactaristics = null;
   DoughServcieStatusEnum doughServcieStatus = DoughServcieStatusEnum.idle;
   int doughHeight = 0;
   double fermPrecentage = 0.0;
+  String errorMessage = '';
 
   //event subscription
   late StreamSubscription<List<int>> statusCharSubsc;
@@ -64,16 +63,6 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Center(
       child: Column(children: [
-        // ElevatedButton(
-        //   onPressed: () {
-        //     debugPrint('Looking for BLE');
-        //     var bleDoughDevice = ScanBleDoughDevice(flutterBlue);
-        //   },
-        //   child: const Text(
-        //     'Connect Asi Dough BLE',
-        //   ),
-        // ),
-
         // Bluethooth
         Container(
           width: double.infinity,
@@ -124,8 +113,8 @@ class _HomePageState extends State<HomePage> {
                         switch (btDeviceState) {
                           case BluetoothAdapterState.unknown:
                           case BluetoothAdapterState.on:
-                          //case BluetoothAdapterState.unauthorized:
-                          //case BluetoothAdapterState.unavailable:
+                            //case BluetoothAdapterState.unauthorized:
+                            //case BluetoothAdapterState.unavailable:
                             debugPrint('TAP - Scanning for Devices ...');
                             await ScanBleDoughDevice(flutterBluePlus);
                             break;
@@ -149,12 +138,8 @@ class _HomePageState extends State<HomePage> {
                         //Device   Icon
                         Icon(
                           size: 30.0,
-                          (serviceConnected)
-                              ? Icons.bluetooth_connected
-                              : Icons.bluetooth_outlined,
-                          color: (serviceConnected)
-                              ? Colors.blue
-                              : Colors.grey,
+                          (serviceConnected) ? Icons.bluetooth_connected : Icons.bluetooth_outlined,
+                          color: (serviceConnected) ? Colors.blue : Colors.grey,
                         ),
                         Container(
                           margin: const EdgeInsets.symmetric(horizontal: 10.0),
@@ -162,8 +147,8 @@ class _HomePageState extends State<HomePage> {
                             (serviceConnected)
                                 ? 'Connected'
                                 : isScanning
-                                  ? 'Connecting ...'
-                                  : 'Not Connected',
+                                    ? 'Connecting ...'
+                                    : 'Not Connected',
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -187,68 +172,69 @@ class _HomePageState extends State<HomePage> {
           child: Container(
             margin: const EdgeInsets.all(5.0),
             decoration: BoxDecoration(
-                color: Colors.cyan[75],
-                border: Border.all(
-                  color: Colors.blueAccent,
-                )),
+              color: Colors.cyan[75],
+              border: Border.all(
+                color: Colors.blueAccent,
+              )),
             child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    margin: const EdgeInsets.symmetric(horizontal: 5.0),
-                          child:ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blueAccent[100], // background color
-                                foregroundColor: Colors.white, // text color
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 5),
-                              ),
-                              onPressed: () {
-                                if (serviceConnected) {
-                                  if ((startStopCharactaristics != null) && serviceConnected) {
-                                    if (doughServcieStatus == DoughServcieStatusEnum.idle) {
-                                      debugPrint('Start Fermentation Monitoring.');
-                                      startStopCharactaristics!.write([0x1]);
-                                    } else {
-                                      debugPrint('Stop Fermentation Monitoring.');
-                                      startStopCharactaristics!.write([0x0]);
-                                    }
-                                  }
-                                }; //disable
-                              },
-                              child: Text(
-                                  (doughServcieStatus == DoughServcieStatusEnum.idle)
-                                  ? 'Start'
-                                  : 'Stop',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: serviceConnected
-                                        ? Colors.black
-                                        : Colors.grey,
-                                  )
-                              )
-                          ),
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent[100], // background color
+                      foregroundColor: Colors.white, // text color
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                    ),
+                    onPressed: () {
+                      if (serviceConnected) {
+                        if ((startStopCharactaristics != null) && serviceConnected) {
+                          if (doughServcieStatus == DoughServcieStatusEnum.idle) {
+                            debugPrint('Start Fermentation Monitoring.');
+                            startStopCharactaristics!.write([0x1]);
+                          } else {
+                            debugPrint('Stop Fermentation Monitoring.');
+                            startStopCharactaristics!.write([0x0]);
+                          }
+                        }
+                      }
+                      ; //disable
+                    },
+                    child: Text((doughServcieStatus == DoughServcieStatusEnum.idle) ? 'Start' : 'Stop',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: serviceConnected ? Colors.black : Colors.grey,
+                      )
+                    )
                   ),
-                  //Fermentation Status -   idle, Fermenting, ReachedDesiredFerm, OverFerm, Error
-                  Container(
-                    decoration:
-                        BoxDecoration(
-                            color: doughServcieStatuColors[doughServcieStatus.index],
-                            border: Border.all(color: Colors.lightBlue, width: 2.0)),
-                    margin: const EdgeInsets.symmetric(vertical: 5.0),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
-                      //BT Icon
-                      Icon(
-                        size: 30.0,
-                        doughServcieStatus == DoughServcieStatusEnum.idle
-                            ? Icons.hourglass_empty
-                            : serviceConnected
-                            ? Icons.bluetooth_connected
+                ),
+                //Fermentation Status -   idle, Fermenting, ReachedDesiredFerm, OverFerm, Error
+                Container(
+                  decoration: BoxDecoration(
+                    color: (() {
+                      if (doughServcieStatus != DoughServcieStatusEnum.Error) {
+                        return doughServcieStatuColors[doughServcieStatus.index];
+                      } else {
+                        return doughServcieStatuColors[DoughServcieStatusEnum.idle.index];
+                      }
+                    })(),
+                    border: Border.all(color: Colors.lightBlue, width: 2.0)),
+                  margin: const EdgeInsets.symmetric(vertical: 5.0),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
+                    //BT Icon
+                    Icon(
+                      size: 30.0,
+                      doughServcieStatus == DoughServcieStatusEnum.idle
+                          ? Icons.hourglass_empty
+                          : serviceConnected
+                              ? Icons.bluetooth_connected
                               : doughServcieStatus == DoughServcieStatusEnum.Fermenting
                                   ? Icons.hourglass_bottom
                                   : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
@@ -256,68 +242,107 @@ class _HomePageState extends State<HomePage> {
                                       : doughServcieStatus == DoughServcieStatusEnum.OverFerm
                                           ? Icons.upload_sharp
                                           : Icons.error_outline,
-                        color: btState == DoughServcieStatusEnum.Error
-                            ? Colors.red
-                            : Colors.blue,
-                      ),
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 10.0),
-                        child: Text(
-                          doughServcieStatus == DoughServcieStatusEnum.idle
-                              ? 'Idle'
-                             : doughServcieStatus == DoughServcieStatusEnum.Fermenting
+                      color: Colors.blue,
+                    ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 10.0),
+                      child: Text(
+                        doughServcieStatus == DoughServcieStatusEnum.idle
+                            ? 'Idle'
+                            : doughServcieStatus == DoughServcieStatusEnum.Fermenting
                                 ? 'Fermenting'
                                 : doughServcieStatus == DoughServcieStatusEnum.ReachedDesiredFerm
                                     ? 'Done'
                                     : doughServcieStatus == DoughServcieStatusEnum.OverFerm
                                         ? 'Over Fermentation'
                                         : 'Error',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
                         ),
                       ),
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 10.0),
-                        alignment: Alignment.bottomRight,
-                        child: Text(
-                          '${fermPrecentage.toStringAsFixed(1)}%',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ]),
-                  ),
-
-                  Container(
-                    decoration: BoxDecoration(
-                        color: Colors.lightGreen[50], border: Border.all(color: Colors.lightBlue, width: 2.0)),
-                    margin: const EdgeInsets.symmetric(vertical: 5.0),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () async {
-                        discoverBleDoughServices();
-                      },
-                      child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            //Device Height Data
-                            Text('Debug Data, Height ${doughHeight}'),
-                            // Text('Row Text'),
-                            // Text('Row Text'),
-                          ]),
                     ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 10.0),
+                      alignment: Alignment.bottomRight,
+                      child: Text(
+                        '${fermPrecentage.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+
+                Container(
+                  decoration: BoxDecoration(
+                      color: Colors.lightGreen[50], border: Border.all(color: Colors.lightBlue, width: 2.0)),
+                  margin: const EdgeInsets.symmetric(vertical: 5.0),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () async {
+                      discoverBleDoughServices();
+                    },
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          //Device Height Data
+                          Text('Debug Data, Height ${doughHeight}'),
+                          // Text('Row Text'),
+                          // Text('Row Text'),
+                        ]),
                   ),
-                ]),
+                ),
+              ]),
           ),
         ),
-      ]),
+
+        //Error
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10.0),
+          margin: const EdgeInsets.fromLTRB(10.0, 30.0, 10.0, 10.0),
+          color: Colors.pink[50],
+          child:Visibility(
+            visible: (doughServcieStatus == DoughServcieStatusEnum.Error),
+            child: Container(
+              margin: const EdgeInsets.all(5.0),
+              decoration: BoxDecoration(
+                color: Colors.cyan[75],
+                border: Border.all(
+                  color: Colors.blueAccent,
+                )
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                    child: Container(
+                      child: Text(
+                        '$errorMessage',
+                        textAlign: TextAlign.start,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: doughServcieStatus == DoughServcieStatusEnum.Error ? Colors.red : Colors.blue,
+                        ),
+                      ),
+                    ),
+                  ),
+                ]
+              )
+            ),
+          )
+        ),
+    ]),
     );
   }
 
@@ -326,7 +351,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
 
     //set BT logger settings
-    FlutterBluePlus.setLogLevel(LogLevel.info, color:false);
+    FlutterBluePlus.setLogLevel(LogLevel.info, color: false);
     if (adapterStateSubsc != null) {
       // Already subscribed to BT status changes.
       return;
@@ -334,7 +359,6 @@ class _HomePageState extends State<HomePage> {
 
     //listen bluetooth current state
     adapterStateSubsc = FlutterBluePlus.adapterState.listen((state) {
-
       setState(() {
         btState = state;
       });
@@ -345,12 +369,12 @@ class _HomePageState extends State<HomePage> {
 
         // turn on bluetooth ourself if we can
         // for iOS, the user controls bluetooth enable/disable
-        if (/*!kIsWeb && */Platform.isAndroid) {
+        if (/*!kIsWeb && */ Platform.isAndroid) {
           // FlutterBluePlus.turnOn();
         }
       } else if (state == BluetoothAdapterState.on) {
         //Get Service
-         ScanBleDoughDevice(flutterBluePlus);
+        ScanBleDoughDevice(flutterBluePlus);
       }
     });
 
@@ -369,7 +393,6 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> ScanBleDoughDeviceTimer(FlutterBluePlus flutterBluePlus) async {
     var timer = Timer.periodic(const Duration(seconds: 30), (timer) async {
-
       //found device in last iteration, stop timer
       if (asiDoughDevice != null) {
         //stop conn timer
@@ -382,12 +405,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> ScanBleDoughDevice(FlutterBluePlus flutterBluePlus) async {
-
     bool needToScan = (asiDoughDevice == null);
     bool needToReconnect = (asiDoughDevice != null && asiDoughDevice!.isConnected == false);
 
     while (needToScan || needToReconnect) {
-
       //case of enforce scan
       if (needToReconnect) {
         //Object already exist, no need to scan, try to connect
@@ -400,51 +421,50 @@ class _HomePageState extends State<HomePage> {
       debugPrint('Start scanning for devices.');
 
       // Listen to scan results
-      scanSubsc ??= FlutterBluePlus.onScanResults.listen((results) async {
-        debugPrint('Device Scan Result size;${results.length}');
+      scanSubsc ??= FlutterBluePlus.onScanResults.listen(
+        (results) async {
+          debugPrint('Device Scan Result size;${results.length}');
 
-        if (results.isNotEmpty) {
-          ScanResult result = results.last; // the most recently found device
+          if (results.isNotEmpty) {
+            ScanResult result = results.last; // the most recently found device
 
-          debugPrint('\'${result.device.platformName}\' with rssi: ${result.rssi}');
+            debugPrint('\'${result.device.platformName}\' with rssi: ${result.rssi}');
 
-          if (result.device.platformName == DOUGH_DEVICE_NAME) {
-            asiDoughDevice = result.device;
-            await asiDoughDevice!.connect();
-            serviceConnected = true;
-            debugPrint('\'$asiDoughDevice!.platformName\' Found Asi Dough Device, stop scan and Connect.');
+            if (result.device.platformName == DOUGH_DEVICE_NAME) {
+              asiDoughDevice = result.device;
+              await asiDoughDevice!.connect();
+              serviceConnected = true;
+              debugPrint('\'$asiDoughDevice!.platformName\' Found Asi Dough Device, stop scan and Connect.');
 
-            // Stop scanning
-            await FlutterBluePlus.stopScan();
+              // Stop scanning
+              await FlutterBluePlus.stopScan();
 
-            //Subscribe for device connection/disconnection
-            StreamSubscription<BluetoothConnectionState> asiDoughConnSubsc = onDeviceConnectionChange();
+              //Subscribe for device connection/disconnection
+              StreamSubscription<BluetoothConnectionState> asiDoughConnSubsc = onDeviceConnectionChange();
 
-            //Connect to the device
-            ConnectDevice(asiDoughDevice!);
+              //Connect to the device
+              ConnectDevice(asiDoughDevice!);
+            }
           }
-        }
         },
-          onError: (error) => print("Error inn scan results: $error"),
-        );
+        onError: (error) => print("Error inn scan results: $error"),
+      );
       // cleanup: cancel subscription when scanning stops
       // FlutterBluePlus.cancelWhenScanComplete(scanSubsc!);
 
       //start actual scan
       isScanning = true;
       FlutterBluePlus.startScan(
-        // withServices:[Guid(DOUGH_HEIGHT_SERVICE_UUID)], // match any of the specified services
-          withNames: ["Asi Dough Height"],
-          // *or* any of the specified names (withKeywords)
-          timeout: const Duration(seconds: 5)
-      ).catchError((error) {
+              // withServices:[Guid(DOUGH_HEIGHT_SERVICE_UUID)], // match any of the specified services
+              withNames: ["Asi Dough Height"],
+              // *or* any of the specified names (withKeywords)
+              timeout: const Duration(seconds: 5))
+          .catchError((error) {
         print("Error starting scan: $error");
       });
 
       // wait for scanning to stop
-      await FlutterBluePlus.isScanning
-          .where((val) => val == false)
-          .first;
+      await FlutterBluePlus.isScanning.where((val) => val == false).first;
       setState(() {
         isScanning = false;
       });
@@ -454,74 +474,65 @@ class _HomePageState extends State<HomePage> {
 
       needToScan = (asiDoughDevice == null);
       needToReconnect = (asiDoughDevice != null && asiDoughDevice!.isConnected == false);
-
     }
   }
 
   StreamSubscription<BluetoothConnectionState> onDeviceConnectionChange() {
-
     return asiDoughDevice!.connectionState.listen((state) {
+      debugPrint('Device status changed to \'${state.name}\'');
 
-        debugPrint('Device status changed to \'${state.name}\'');
+      if (state == BluetoothConnectionState.connected) {
+        // print("Connection established with Asi Dough Device.");
 
-        if (state == BluetoothConnectionState.connected) {
-          // print("Connection established with Asi Dough Device.");
+        setState(() {
+          serviceConnected = true;
+        });
 
-          setState(() {
-            serviceConnected = true;
+        //set device settings
+        if (Platform.isAndroid) {
+          final subscription = asiDoughDevice!.mtu.listen((int mtu) {
+            // iOS: initial value is always 23, but iOS will quickly negotiate a higher value
+            int mtuNow = asiDoughDevice!.mtuNow;
+            debugPrint('Device MTU changed to $mtu , $mtuNow');
           });
 
-          //set device settings
-          if (Platform.isAndroid) {
+          //Request long messages
+          asiDoughDevice!.requestMtu(512);
 
-            final subscription = asiDoughDevice!.mtu.listen((int mtu) {
-              // iOS: initial value is always 23, but iOS will quickly negotiate a higher value
-              int mtuNow = asiDoughDevice!.mtuNow;
-              debugPrint('Device MTU changed to $mtu , $mtuNow');
-            });
-
-            //Request long messages
-            asiDoughDevice!.requestMtu(512);
-
-            // asiDoughDevice.requestConnectionPriority();
-          }
-
-          //look for services
-          discoverBleDoughServices();
-
-        } else if (state == BluetoothConnectionState.disconnected) {
-
-          if (!statusChangeByUser) {
-            setState(() {
-              serviceConnected = false;
-            });
-
-            Timer.periodic(const Duration(seconds: 7), (timer) {
-              //try to reconnect
-              if (doughServcieStatus == DoughServcieStatusEnum.idle) {
-                debugPrint('Timer \'${timer.tick}\' try to connect');
-                //Connect to the device
-                ConnectDevice(asiDoughDevice!);
-              } else {
-                debugPrint('Connected cancel timer.');
-                timer.cancel();
-              }
-        });
-          }
+          // asiDoughDevice.requestConnectionPriority();
         }
-      });
+
+        //look for services
+        discoverBleDoughServices();
+      } else if (state == BluetoothConnectionState.disconnected) {
+        if (!statusChangeByUser) {
+          setState(() {
+            serviceConnected = false;
+          });
+
+          Timer.periodic(const Duration(seconds: 7), (timer) {
+            //try to reconnect
+            if (doughServcieStatus == DoughServcieStatusEnum.idle) {
+              debugPrint('Timer \'${timer.tick}\' try to connect');
+              //Connect to the device
+              ConnectDevice(asiDoughDevice!);
+            } else {
+              debugPrint('Connected cancel timer.');
+              timer.cancel();
+            }
+          });
+        }
+      }
+    });
   }
 
   Future<void> ConnectDevice(BluetoothDevice device) async {
     try {
-      await asiDoughDevice!.connect(
-          autoConnect: true,
-          mtu:null,
-          timeout: const Duration(seconds: 15)
-      ).catchError((error) {
+      await asiDoughDevice!
+          .connect(autoConnect: true, mtu: null, timeout: const Duration(seconds: 15))
+          .catchError((error) {
         print("Failed to connect Asi Dough Device: $error");
       });
-
     } catch (e) {
       debugPrint("Connection failed: $e");
     }
@@ -548,7 +559,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> ReadCharacteristics(BluetoothService service) async {
-
     //Get Characteristics
     List<BluetoothCharacteristic> characteristics = service.characteristics;
     for (BluetoothCharacteristic character in characteristics) {
@@ -559,7 +569,8 @@ class _HomePageState extends State<HomePage> {
             if (character.properties.read) {
               List<int> value = await character.read();
               StatusMessage statusValue = GetStatusCharacteristics(value);
-              debugPrint('Read Dough Service Status Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
+              debugPrint(
+                  'Read Dough Service Status Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
               setState(() {
                 doughServcieStatus = DoughServcieStatusEnum.values[statusValue.status];
               });
@@ -567,9 +578,11 @@ class _HomePageState extends State<HomePage> {
             if (!character.isNotifying) {
               statusCharSubsc = character.value.listen((value) {
                 StatusMessage statusValue = GetStatusCharacteristics(value);
-                debugPrint('Listen Dough Service Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
+                debugPrint(
+                    'Listen Dough Service Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
                 setState(() {
                   doughServcieStatus = DoughServcieStatusEnum.values[statusValue.status];
+                  errorMessage = statusValue.message;
                 });
               });
               Future.delayed(const Duration(milliseconds: 1000), () {
@@ -647,7 +660,7 @@ class _HomePageState extends State<HomePage> {
       } catch (ex) {
         debugPrint('Parse Int characteristics Exception: \'${ex}\'');
       }
-  }
+    }
     return intValue;
   }
 
@@ -668,7 +681,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   StatusMessage GetStatusCharacteristics(List<int> value) {
-
     StatusMessage statusValue = StatusMessage.EmptyConstructor();
     if (value.isNotEmpty) {
       try {
@@ -684,12 +696,11 @@ class _HomePageState extends State<HomePage> {
     return statusValue;
   }
 
-
   void DisconnectingDevice() {
     debugPrint('Disconnecting from device, remove subscriptions');
     // heightCharSubsc.cancel();
     // statusCharSubsc.cancel();
-    asiDoughDevice?.disconnect();//ToDo - does it affect the reconnect?
+    asiDoughDevice?.disconnect(); //ToDo - does it affect the reconnect?
   }
 
   // @override
