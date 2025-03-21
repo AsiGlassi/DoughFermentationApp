@@ -73,25 +73,82 @@ class _HomePageState extends State<HomePage> {
             margin: const EdgeInsets.all(5.0),
             decoration: BoxDecoration(color: Colors.greenAccent, border: Border.all(color: Colors.blueAccent)),
             child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                        color: Colors.lightGreen[50], border: Border.all(color: Colors.orange, width: 2.0)),
-                    padding: EdgeInsets.all(1.0),
-                    margin: const EdgeInsets.symmetric(vertical: 5.0),
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                      color: Colors.lightGreen[50], border: Border.all(color: Colors.orange, width: 2.0)),
+                  padding: EdgeInsets.all(1.0),
+                  margin: const EdgeInsets.symmetric(vertical: 5.0),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
+                    //BT Icon
+                    Icon(
+                      size: 30.0,
+                      btState == BluetoothAdapterState.off ? Icons.bluetooth_disabled : Icons.bluetooth_outlined,
+                      color: btState == BluetoothAdapterState.off ? Colors.redAccent : Colors.blue,
+                    ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 10.0),
+                      child: Text(
+                        btState == BluetoothAdapterState.off ? 'BT Off' : 'BT On',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                      color: Colors.lightGreen[50], border: Border.all(color: Colors.orange, width: 2.0)),
+                  padding: EdgeInsets.all(1.0),
+                  margin: const EdgeInsets.symmetric(vertical: 5.0),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () async {
+                      //Change device conn status
+                      switch (btDeviceState) {
+                        case BluetoothAdapterState.unknown:
+                        case BluetoothAdapterState.on:
+                          //case BluetoothAdapterState.unauthorized:
+                          //case BluetoothAdapterState.unavailable:
+                          debugPrint('TAP - Scanning for Devices ...');
+                          await ScanBleDoughDevice(flutterBluePlus);
+                          break;
+                        // case BluetoothAdapterState.turningOff:
+                        //   {
+                        //     debugPrint('Connecting back...');
+                        //     await asiDoughDevice.connect();
+                        //   }
+                        //   break;
+                        // case BluetoothAdapterState.off:
+                        case BluetoothAdapterState.turningOff:
+                          {
+                            debugPrint('Disconnecting device');
+                            statusChangeByUser = true;
+                            DisconnectingDevice();
+                          }
+                          break;
+                      }
+                    },
                     child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
-                      //BT Icon
+                      //Device   Icon
                       Icon(
                         size: 30.0,
-                        btState == BluetoothAdapterState.off ? Icons.bluetooth_disabled : Icons.bluetooth_outlined,
-                        color: btState == BluetoothAdapterState.off ? Colors.redAccent : Colors.blue,
+                        (serviceConnected) ? Icons.bluetooth_connected : Icons.bluetooth_outlined,
+                        color: (serviceConnected) ? Colors.blue : Colors.grey,
                       ),
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 10.0),
                         child: Text(
-                          btState == BluetoothAdapterState.off ? 'BT Off' : 'BT On',
+                          (serviceConnected)
+                              ? 'Connected'
+                              : isScanning
+                                  ? 'Connecting ...'
+                                  : 'Not Connected',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -101,65 +158,8 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ]),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                        color: Colors.lightGreen[50], border: Border.all(color: Colors.orange, width: 2.0)),
-                    padding: EdgeInsets.all(1.0),
-                    margin: const EdgeInsets.symmetric(vertical: 5.0),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () async {
-                        //Change device conn status
-                        switch (btDeviceState) {
-                          case BluetoothAdapterState.unknown:
-                          case BluetoothAdapterState.on:
-                            //case BluetoothAdapterState.unauthorized:
-                            //case BluetoothAdapterState.unavailable:
-                            debugPrint('TAP - Scanning for Devices ...');
-                            await ScanBleDoughDevice(flutterBluePlus);
-                            break;
-                          // case BluetoothAdapterState.turningOff:
-                          //   {
-                          //     debugPrint('Connecting back...');
-                          //     await asiDoughDevice.connect();
-                          //   }
-                          //   break;
-                          // case BluetoothAdapterState.off:
-                          case BluetoothAdapterState.turningOff:
-                            {
-                              debugPrint('Disconnecting device');
-                              statusChangeByUser = true;
-                              DisconnectingDevice();
-                            }
-                            break;
-                        }
-                      },
-                      child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
-                        //Device   Icon
-                        Icon(
-                          size: 30.0,
-                          (serviceConnected) ? Icons.bluetooth_connected : Icons.bluetooth_outlined,
-                          color: (serviceConnected) ? Colors.blue : Colors.grey,
-                        ),
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 10.0),
-                          child: Text(
-                            (serviceConnected)
-                                ? 'Connected'
-                                : isScanning
-                                    ? 'Connecting ...'
-                                    : 'Not Connected',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      ]),
-                    ),
-                  ),
-                ]),
+                ),
+              ]),
           ),
         ),
 
@@ -303,46 +303,47 @@ class _HomePageState extends State<HomePage> {
         ),
 
         //Error
-        Container(
+      Visibility(
+        visible: (doughServcieStatus == DoughServcieStatusEnum.Error),
+        child:Container(
           width: double.infinity,
           padding: const EdgeInsets.all(10.0),
           margin: const EdgeInsets.fromLTRB(10.0, 30.0, 10.0, 10.0),
           color: Colors.pink[50],
-          child:Visibility(
-            visible: (doughServcieStatus == DoughServcieStatusEnum.Error),
-            child: Container(
-              margin: const EdgeInsets.all(5.0),
-              decoration: BoxDecoration(
-                color: Colors.cyan[75],
-                border: Border.all(
-                  color: Colors.blueAccent,
-                )
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    margin: const EdgeInsets.symmetric(horizontal: 5.0),
-                    child: Container(
-                      child: Text(
-                        '$errorMessage',
-                        textAlign: TextAlign.start,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: doughServcieStatus == DoughServcieStatusEnum.Error ? Colors.red : Colors.blue,
-                        ),
+          child: Container(
+            margin: const EdgeInsets.all(5.0),
+            decoration: BoxDecoration(
+              color: Colors.cyan[75],
+              border: Border.all(
+                color: Colors.blueAccent,
+              )
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                  child: Container(
+                    child: Text(
+                      '$errorMessage',
+                      textAlign: TextAlign.start,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: doughServcieStatus == DoughServcieStatusEnum.Error ? Colors.red : Colors.blue,
                       ),
                     ),
                   ),
-                ]
-              )
-            ),
+                ),
+              ]
+            )
+          ),
           )
-        ),
-    ]),
+      ),
+    ]
+      )
     );
   }
 
