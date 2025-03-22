@@ -188,25 +188,33 @@ class _HomePageState extends State<HomePage> {
                       backgroundColor: Colors.blueAccent[100], // background color
                       foregroundColor: Colors.white, // text color
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 5),
                     ),
-                    onPressed: () {
+                    onPressed: IsStartStopDisabled()? null : () {
                       if (serviceConnected) {
                         if ((startStopCharactaristics != null) && serviceConnected) {
                           if (doughServcieStatus == DoughServcieStatusEnum.idle) {
                             debugPrint('Start Fermentation Monitoring.');
                             startStopCharactaristics!.write([0x1]);
-                          } else {
+                          } else if (doughServcieStatus != DoughServcieStatusEnum.Error) {
                             debugPrint('Stop Fermentation Monitoring.');
                             startStopCharactaristics!.write([0x0]);
+                          } else {
+                            null;
                           }
+                        } else {
+                          null;
                         }
-                      }
-                      ; //disable
+                      };
                     },
-                    child: Text((doughServcieStatus == DoughServcieStatusEnum.idle) ? 'Start' : 'Stop',
+                    child: Text(
+                        (doughServcieStatus == DoughServcieStatusEnum.idle)
+                        ? 'Start'
+                        : (doughServcieStatus == DoughServcieStatusEnum.Error)
+                          ? 'Error'
+                          : 'Stop',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -345,6 +353,10 @@ class _HomePageState extends State<HomePage> {
     ]
       )
     );
+  }
+
+  bool IsStartStopDisabled() {
+    return (!serviceConnected || doughServcieStatus == DoughServcieStatusEnum.Error);
   }
 
   @override
