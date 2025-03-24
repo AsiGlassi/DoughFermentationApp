@@ -55,8 +55,10 @@ class _HomePageState extends State<HomePage> {
   String errorMessage = '';
 
   //event subscription
-  late StreamSubscription<List<int>> statusCharSubsc;
-  late StreamSubscription<List<int>> heightCharSubsc;
+  StreamSubscription<BluetoothConnectionState>? asiDoughConnSubsc = null;
+  StreamSubscription<List<int>>? statusCharSubsc = null;
+  StreamSubscription<List<int>>? heightCharSubsc = null;
+  StreamSubscription<List<int>>? heightPercentageCharSubsc = null;
   StreamSubscription<List<ScanResult>>? scanSubsc = null;
 
   @override
@@ -453,7 +455,9 @@ class _HomePageState extends State<HomePage> {
               await FlutterBluePlus.stopScan();
 
               //Subscribe for device connection/disconnection
-              StreamSubscription<BluetoothConnectionState> asiDoughConnSubsc = onDeviceConnectionChange();
+              if (asiDoughConnSubsc == null) {
+                asiDoughConnSubsc = onDeviceConnectionChange();
+              }
 
               //Connect to the device
               ConnectDevice(asiDoughDevice!);
@@ -517,6 +521,7 @@ class _HomePageState extends State<HomePage> {
 
         //look for services
         discoverBleDoughServices();
+
       } else if (state == BluetoothConnectionState.disconnected) {
         if (!statusChangeByUser) {
           setState(() {
@@ -525,7 +530,7 @@ class _HomePageState extends State<HomePage> {
 
           Timer.periodic(const Duration(seconds: 7), (timer) {
             //try to reconnect
-            if (doughServcieStatus == DoughServcieStatusEnum.idle) {
+            if (!serviceConnected) {
               debugPrint('Timer \'${timer.tick}\' try to connect');
               //Connect to the device
               ConnectDevice(asiDoughDevice!);
@@ -589,7 +594,8 @@ class _HomePageState extends State<HomePage> {
               });
             }
             if (!character.isNotifying) {
-              statusCharSubsc = character.value.listen((value) {
+              statusCharSubsc?.cancel();
+              statusCharSubsc = character.onValueReceived.listen((value) {
                 StatusMessage statusValue = GetStatusCharacteristics(value);
                 debugPrint(
                     'Listen Dough Service Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
@@ -615,7 +621,8 @@ class _HomePageState extends State<HomePage> {
               });
             }
             if (!character.isNotifying) {
-              heightCharSubsc = character.value.listen((value) {
+              heightCharSubsc?.cancel();
+              heightCharSubsc = character.onValueReceived.listen((value) {
                 int intTmpVal = GetIntCharacteristics(value);
                 debugPrint('Listen Dough Height: \'$intTmpVal\'');
                 setState(() {
@@ -644,7 +651,8 @@ class _HomePageState extends State<HomePage> {
               });
             }
             if (!character.isNotifying) {
-              heightCharSubsc = character.value.listen((value) {
+              heightPercentageCharSubsc?.cancel();
+              heightPercentageCharSubsc = character.onValueReceived.listen((value) {
                 double dblTempVal = (GetDoubleCharacteristics(value) * 100);
                 debugPrint('Listen Dough Fermentation Percentage: \'${dblTempVal.toStringAsFixed(3)}\'');
                 setState(() {
