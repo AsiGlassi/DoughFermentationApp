@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
-// import 'package:flutter/cupertino.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:dough_fermentation/Messages.dart';
+import 'package:audioplayers/audioplayers.dart';
+
 
 import 'dart:async';
 
@@ -359,6 +359,11 @@ class _HomePageState extends State<HomePage> {
 
   bool IsStartStopDisabled() {
     return (!serviceConnected || doughServcieStatus == DoughServcieStatusEnum.Error);
+  }
+
+  Future<void> PlaySound(String filename) async {
+    String path = "assets/sounds/$filename";
+    // await player.play(AssetSource(path));
   }
 
   @override
@@ -727,6 +732,7 @@ class _HomePageState extends State<HomePage> {
   // @override
   // void dispose() {
   //   deviceStateSubscription.cancel();
+  // player.dispose();
   //   super.dispose();
   // }
 }

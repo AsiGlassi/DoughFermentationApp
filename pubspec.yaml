@@ -25,7 +25,7 @@ environment:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "images/icons/DoughIcon.png"  # Path to your app icon
+  image_path: "resources/images/icons/DoughIcon.png"  # Path to your app icon
   #adaptive_icon_background: "#ffffff" # (Optional for Android adaptive icons)
   #adaptive_icon_foreground: "assets/icon/app_icon_foreground.png" # (Optional)
 
@@ -47,6 +47,8 @@ dependencies:
   flutter_blue_plus : ^1.35.0
   json_annotation: ^4.8.0
   flutter_launcher_icons: ^0.13.1
+  audioplayers: ^5.2.1
+
 
 dev_dependencies:
   flutter_test:
@@ -75,7 +77,8 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-     - images/
+     - resources/images/
+     - resources/sounds/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

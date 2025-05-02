@@ -20,9 +20,9 @@ class _AboutPageState extends State<AboutPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               // Image.asset('images/AS1_3633.jpg')
-              CircleAvatar(
-                  radius: 70, backgroundImage: AssetImage('images/AS1_3633.jpg')),
-              Text(
+              const CircleAvatar(
+              radius: 70, backgroundImage: AssetImage('resources/images/AS1_3633.jpg')),
+              const Text(
                 'Asi Ben-Shach',
                 style: TextStyle(
                     fontFamily: 'Pacifico',
@@ -30,7 +30,7 @@ class _AboutPageState extends State<AboutPage> {
                     fontSize: 30,
                     fontWeight: FontWeight.bold),
               ),
-              Text(
+              const Text(
                 'Developer',
                 style: TextStyle(
                     fontFamily: 'SourceSansPro',
@@ -40,7 +40,7 @@ class _AboutPageState extends State<AboutPage> {
                     fontWeight: FontWeight.bold
                 ),
               ),
-              SizedBox(
+              const SizedBox(
                 height: 20,
                 width: 150,
                 child: Divider(
@@ -52,7 +52,7 @@ class _AboutPageState extends State<AboutPage> {
                   borderRadius: BorderRadius.circular(7.0),
                 ),
                 margin: EdgeInsets.symmetric(vertical: 10,horizontal: 25),
-                child: ListTile(
+                child: const ListTile(
                   leading: Icon(
                     Icons.phone,
                     color: Colors.black45,
@@ -73,7 +73,7 @@ class _AboutPageState extends State<AboutPage> {
                   borderRadius: BorderRadius.circular(7.0),
                 ),
                 margin: EdgeInsets.symmetric(vertical: 2,horizontal: 25),
-                child: ListTile(
+                child: const ListTile(
                   leading: Icon(
                     Icons.email,
                     color: Colors.black45,
