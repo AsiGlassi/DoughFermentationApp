@@ -11,12 +11,14 @@ import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 const String DOUGH_DEVICE_NAME = "Asi Dough Height";
-const String DOUGH_HEIGHT_SERVICE_UUID = "3ee2ffbe-e236-41f2-9c40-d44563ddc614";
+const String DOUGH_DOUGH_FERMENTATION_SERVICE_UUID = "3ee2ffbe-e236-41f2-9c40-d44563ddc614";
 const String CHARACTERISTIC_HEIGHT_UUID = "7daf9c2b-715c-4a1c-b889-1ccd50817186";
 const String CHARACTERISTIC_FERMENTATION_UUID = "8d0ca8ce-5c66-4e31-ba1a-48868601ec25";
-const String CHARACTERISTIC_START_UUID = "fc70539e-2e17-4cf8-b7e2-4375fc7ded5a";
 const String CHARACTERISTIC_STATUS_UUID = "a1990b88-249f-45b2-a0b2-ba0f1f90ca0a";
-const String CHARACTERISTIC_DESIRED_FERMENTATION_UUID = "b1f4f8ec-efd5-4fd9-be66-09bbb9baa1da";
+const String CHARACTERISTIC_SESSION_STATUS_UUID = "90e0676a-eae2-4878-9a6f-61090aac8837";
+const String CHARACTERISTIC_CONFIGURATION_UUID = "b164f891-400a-439f-95d2-659973c18df4";
+
+const String CHARACTERISTIC_COMMAND_UUID = "fc70539e-2e17-4cf8-b7e2-4375fc7ded5a";
 
 enum DoughServcieStatusEnum { idle, Fermenting, ReachedDesiredFerm, OverFerm, Error }
 
@@ -572,7 +574,7 @@ class _HomePageState extends State<HomePage> {
 
     //Look for Dough Height Service
     for (var service in services!) {
-      if (service.uuid.toString().compareTo(DOUGH_HEIGHT_SERVICE_UUID) == 0) {
+      if (service.uuid.toString().compareTo(DOUGH_DOUGH_FERMENTATION_SERVICE_UUID) == 0) {
         //Service Found, Mark Connected
         serviceConnected = true;
         debugPrint('Found the Dough Height Service');
@@ -640,7 +642,7 @@ class _HomePageState extends State<HomePage> {
             }
           }
           break;
-        case CHARACTERISTIC_START_UUID: //4375fc7ded5a
+        case CHARACTERISTIC_COMMAND_UUID: //4375fc7ded5a
           {
             startStopCharactaristics = character;
           }
