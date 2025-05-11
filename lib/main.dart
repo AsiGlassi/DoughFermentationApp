@@ -1,11 +1,9 @@
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:dough_fermentation/about_page.dart';
 
 import 'home_page.dart';
 
-final AudioPlayer player = AudioPlayer();
 
 void main() {
   // debugPaintSizeEnabled = true; //Show boarder for each obj
@@ -55,7 +53,6 @@ class _RootPageState extends State<RootPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           debugPrint('Debug Message');
-          PlaySound("StartFermentation.mp3");
         },
         child: const Icon(Icons.add),
             ),
@@ -77,7 +74,3 @@ class _RootPageState extends State<RootPage> {
   }
 }
 
-Future<void> PlaySound(String filename) async {
-  String path = "../resources/sounds/$filename";
-  await player.play(AssetSource(path));
-}

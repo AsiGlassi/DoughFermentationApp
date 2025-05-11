@@ -1,14 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'package:flutter/material.dart';
 import 'package:dough_fermentation/Messages.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:dough_fermentation/DoughAudioPlayer.dart';
 
-
-import 'dart:async';
-
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 const String DOUGH_DEVICE_NAME = "Asi Dough Height";
 const String DOUGH_HEIGHT_SERVICE_UUID = "3ee2ffbe-e236-41f2-9c40-d44563ddc614";
@@ -31,6 +29,7 @@ const Color deviceConnectedColor = Color.fromARGB(0xFF, 0xAC, 0x61, 0x99); //GRB
 
 StreamSubscription<BluetoothAdapterState>? adapterStateSubsc = null;
 BluetoothDevice? asiDoughDevice = null;
+final DoughAudioPlayer audioPlayer = DoughAudioPlayer();
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -199,9 +198,11 @@ class _HomePageState extends State<HomePage> {
                         if ((startStopCharactaristics != null) && serviceConnected) {
                           if (doughServcieStatus == DoughServcieStatusEnum.idle) {
                             debugPrint('Start Fermentation Monitoring.');
+                            audioPlayer.PlaySound("StartFermentation");
                             startStopCharactaristics!.write([0x1]);
                           } else if (doughServcieStatus != DoughServcieStatusEnum.Error) {
                             debugPrint('Stop Fermentation Monitoring.');
+                            audioPlayer.PlaySound("EndFermentation");
                             startStopCharactaristics!.write([0x0]);
                           } else {
                             null;
@@ -454,6 +455,7 @@ class _HomePageState extends State<HomePage> {
               asiDoughDevice = result.device;
               await asiDoughDevice!.connect();
               serviceConnected = true;
+              audioPlayer.PlaySound("Connected");
               debugPrint('\'$asiDoughDevice!.platformName\' Found Asi Dough Device, stop scan and Connect.');
 
               // Stop scanning
@@ -508,6 +510,7 @@ class _HomePageState extends State<HomePage> {
 
         setState(() {
           serviceConnected = true;
+          audioPlayer.PlaySound("Connected");
         });
 
         //set device settings
@@ -531,6 +534,7 @@ class _HomePageState extends State<HomePage> {
         if (!statusChangeByUser) {
           setState(() {
             serviceConnected = false;
+            audioPlayer.PlaySound("DisConnected");
           });
 
           Timer.periodic(const Duration(seconds: 7), (timer) {
@@ -576,6 +580,7 @@ class _HomePageState extends State<HomePage> {
         //Service Found, Mark Connected
         serviceConnected = true;
         debugPrint('Found the Dough Height Service');
+        audioPlayer.PlaySound("Connected");
         await ReadCharacteristics(service);
       }
     }
@@ -592,22 +597,13 @@ class _HomePageState extends State<HomePage> {
             if (character.properties.read) {
               List<int> value = await character.read();
               StatusMessage statusValue = GetStatusCharacteristics(value);
-              debugPrint(
-                  'Read Dough Service Status Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
-              setState(() {
-                doughServcieStatus = DoughServcieStatusEnum.values[statusValue.status];
-              });
+              await ExecuteCharacteristicStatus(statusValue, false);
             }
             if (!character.isNotifying) {
               statusCharSubsc?.cancel();
               statusCharSubsc = character.onValueReceived.listen((value) {
                 StatusMessage statusValue = GetStatusCharacteristics(value);
-                debugPrint(
-                    'Listen Dough Service Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
-                setState(() {
-                  doughServcieStatus = DoughServcieStatusEnum.values[statusValue.status];
-                  errorMessage = statusValue.message;
-                });
+                 ExecuteCharacteristicStatus(statusValue, false);
               });
               Future.delayed(const Duration(milliseconds: 1000), () {
                 character.setNotifyValue(true);
@@ -672,6 +668,29 @@ class _HomePageState extends State<HomePage> {
           break;
       }
     }
+  }
+
+  //Helper Characteristic Status
+  Future<void> ExecuteCharacteristicStatus(StatusMessage statusValue, bool notify) async {
+    debugPrint(
+        '${notify?'Listen':'read'} Dough Service Status Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
+    setState(() {
+      DoughServcieStatusEnum newStatus = DoughServcieStatusEnum.values[statusValue.status];
+      if (doughServcieStatus != newStatus) {
+        switch (newStatus) {
+          case DoughServcieStatusEnum.Error:
+            audioPlayer.PlaySound("Error");
+            break;
+          case DoughServcieStatusEnum.OverFerm:
+            audioPlayer.PlaySound("OverFerm");
+            break;
+          case DoughServcieStatusEnum.ReachedDesiredFerm:
+            audioPlayer.PlaySound("ReachedDesiredFerm");
+            break;
+        }
+      }
+      doughServcieStatus = newStatus;
+    });
   }
 
   int GetIntCharacteristics(List<int> value) {
