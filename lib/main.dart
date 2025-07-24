@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:dough_fermentation/about_page.dart';
 
+import 'DoughAudioPlayer.dart';
 import 'home_page.dart';
 
 
@@ -53,6 +54,8 @@ class _RootPageState extends State<RootPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           debugPrint('Debug Message');
+          final DoughAudioPlayer audioPlayer = DoughAudioPlayer();
+          audioPlayer.PlaySound("Error");
         },
         child: const Icon(Icons.add),
             ),
