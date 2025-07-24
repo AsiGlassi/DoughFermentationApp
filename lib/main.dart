@@ -55,7 +55,7 @@ class _RootPageState extends State<RootPage> {
         onPressed: () {
           debugPrint('Debug Message');
           final DoughAudioPlayer audioPlayer = DoughAudioPlayer();
-          audioPlayer.PlaySound("Error");
+          audioPlayer.PlaySound("StartFermentation");
         },
         child: const Icon(Icons.add),
             ),
