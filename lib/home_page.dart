@@ -201,7 +201,7 @@ class _HomePageState extends State<HomePage> {
                         if ((startStopCharactaristics != null) && serviceConnected) {
                           if (doughServcieStatus == DoughServcieStatusEnum.idle) {
                             debugPrint('Start Fermentation Monitoring.');
-                            audioPlayer.PlaySound("StartFermentation");
+                            audioPlayer.PlaySound("FermStart");
                             startStopCharactaristics!.write([0x1]);
                           } else if (doughServcieStatus != DoughServcieStatusEnum.Error) {
                             debugPrint('Stop Fermentation Monitoring.');
@@ -453,7 +453,7 @@ class _HomePageState extends State<HomePage> {
               asiDoughDevice = result.device;
               await asiDoughDevice!.connect();
               serviceConnected = true;
-              audioPlayer.PlaySound("Connected");
+              audioPlayer.PlaySound("DeviceConn");
               debugPrint('\'$asiDoughDevice!.platformName\' Found Asi Dough Device, stop scan and Connect.');
 
               // Stop scanning
@@ -508,7 +508,7 @@ class _HomePageState extends State<HomePage> {
 
         setState(() {
           serviceConnected = true;
-          audioPlayer.PlaySound("Connected");
+          audioPlayer.PlaySound("DeviceConn");
         });
 
         //set device settings
@@ -532,7 +532,7 @@ class _HomePageState extends State<HomePage> {
         if (!statusChangeByUser) {
           setState(() {
             serviceConnected = false;
-            audioPlayer.PlaySound("DisConnected");
+            audioPlayer.PlaySound("DeviceDisconn");
           });
 
           Timer.periodic(const Duration(seconds: 7), (timer) {
@@ -578,7 +578,7 @@ class _HomePageState extends State<HomePage> {
         //Service Found, Mark Connected
         serviceConnected = true;
         debugPrint('Found the Dough Height Service');
-        audioPlayer.PlaySound("Connected");
+        audioPlayer.PlaySound("DeviceConn");
         await ReadCharacteristics(service);
       }
     }
@@ -671,19 +671,19 @@ class _HomePageState extends State<HomePage> {
   //Helper Characteristic Status
   Future<void> ExecuteCharacteristicStatus(StatusMessage statusValue, bool notify) async {
     debugPrint(
-        '${notify?'Listen':'read'} Dough Service Status Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
+        '${notify?'Listen':'Read'} Dough Service Status Status \'${DoughServcieStatusEnum.values[statusValue.status]}\', Message: \'${statusValue.message}\'');
     setState(() {
       DoughServcieStatusEnum newStatus = DoughServcieStatusEnum.values[statusValue.status];
       if (doughServcieStatus != newStatus) {
         switch (newStatus) {
           case DoughServcieStatusEnum.Error:
-            audioPlayer.PlaySound("Error");
+            audioPlayer.PlaySound("FermError");
             break;
           case DoughServcieStatusEnum.OverFerm:
-            audioPlayer.PlaySound("OverFerm");
+            audioPlayer.PlaySound("FermOver");
             break;
           case DoughServcieStatusEnum.ReachedDesiredFerm:
-            audioPlayer.PlaySound("ReachedDesiredFerm");
+            audioPlayer.PlaySound("FermDone");
             break;
         }
       }
