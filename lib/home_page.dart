@@ -30,8 +30,8 @@ final List<Color> doughServcieStatuColors = <Color>[
 ];
 const Color deviceConnectedColor = Color.fromARGB(0xFF, 0xAC, 0x61, 0x99); //GRB 0xAC6199
 
-StreamSubscription<BluetoothAdapterState>? adapterStateSubsc = null;
-BluetoothDevice? asiDoughDevice = null;
+StreamSubscription<BluetoothAdapterState>? adapterStateSubsc;
+BluetoothDevice? asiDoughDevice;
 final DoughAudioPlayer audioPlayer = DoughAudioPlayer();
 
 class HomePage extends StatefulWidget {
@@ -50,18 +50,18 @@ class _HomePageState extends State<HomePage> {
   bool isScanning = false;
   BluetoothAdapterState btDeviceState = BluetoothAdapterState.unknown;
   bool serviceConnected = false;
-  BluetoothCharacteristic? startStopCharactaristics = null;
+  BluetoothCharacteristic? startStopCharactaristics;
   DoughServcieStatusEnum doughServcieStatus = DoughServcieStatusEnum.idle;
   int doughHeight = 0;
   double fermPrecentage = 0.0;
   String errorMessage = '';
 
   //event subscription
-  StreamSubscription<BluetoothConnectionState>? asiDoughConnSubsc = null;
-  StreamSubscription<List<int>>? statusCharSubsc = null;
-  StreamSubscription<List<int>>? heightCharSubsc = null;
-  StreamSubscription<List<int>>? heightPercentageCharSubsc = null;
-  StreamSubscription<List<ScanResult>>? scanSubsc = null;
+  StreamSubscription<BluetoothConnectionState>? asiDoughConnSubsc;
+  StreamSubscription<List<int>>? statusCharSubsc;
+  StreamSubscription<List<int>>? heightCharSubsc;
+  StreamSubscription<List<int>>? heightPercentageCharSubsc;
+  StreamSubscription<List<ScanResult>>? scanSubsc;
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +83,7 @@ class _HomePageState extends State<HomePage> {
                 Container(
                   decoration: BoxDecoration(
                       color: Colors.lightGreen[50], border: Border.all(color: Colors.orange, width: 2.0)),
-                  padding: EdgeInsets.all(1.0),
+                  padding: const EdgeInsets.all(1.0),
                   margin: const EdgeInsets.symmetric(vertical: 5.0),
                   child: Row(mainAxisAlignment: MainAxisAlignment.start, mainAxisSize: MainAxisSize.max, children: [
                     //BT Icon
@@ -108,7 +108,7 @@ class _HomePageState extends State<HomePage> {
                 Container(
                   decoration: BoxDecoration(
                       color: Colors.lightGreen[50], border: Border.all(color: Colors.orange, width: 2.0)),
-                  padding: EdgeInsets.all(1.0),
+                  padding: const EdgeInsets.all(1.0),
                   margin: const EdgeInsets.symmetric(vertical: 5.0),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -213,7 +213,7 @@ class _HomePageState extends State<HomePage> {
                         } else {
                           null;
                         }
-                      };
+                      }
                     },
                     child: Text(
                         (doughServcieStatus == DoughServcieStatusEnum.idle)
@@ -306,7 +306,7 @@ class _HomePageState extends State<HomePage> {
                         mainAxisSize: MainAxisSize.max,
                         children: [
                           //Device Height Data
-                          Text('Debug Data, Height ${doughHeight}'),
+                          Text('Debug Data, Height $doughHeight'),
                           // Text('Row Text'),
                           // Text('Row Text'),
                         ]),
@@ -341,7 +341,7 @@ class _HomePageState extends State<HomePage> {
                   margin: const EdgeInsets.symmetric(horizontal: 5.0),
                   child: Container(
                     child: Text(
-                      '$errorMessage',
+                      errorMessage,
                       textAlign: TextAlign.start,
                       style: TextStyle(
                         fontSize: 14,
@@ -460,9 +460,7 @@ class _HomePageState extends State<HomePage> {
               await FlutterBluePlus.stopScan();
 
               //Subscribe for device connection/disconnection
-              if (asiDoughConnSubsc == null) {
-                asiDoughConnSubsc = onDeviceConnectionChange();
-              }
+              asiDoughConnSubsc ??= onDeviceConnectionChange();
 
               //Connect to the device
               ConnectDevice(asiDoughDevice!);
@@ -601,7 +599,7 @@ class _HomePageState extends State<HomePage> {
               statusCharSubsc?.cancel();
               statusCharSubsc = character.onValueReceived.listen((value) {
                 StatusMessage statusValue = GetStatusCharacteristics(value);
-                 ExecuteCharacteristicStatus(statusValue, false);
+                 ExecuteCharacteristicStatus(statusValue, true);
               });
               Future.delayed(const Duration(milliseconds: 1000), () {
                 character.setNotifyValue(true);
@@ -701,7 +699,7 @@ class _HomePageState extends State<HomePage> {
           intValue = int.parse(stringValue);
         }
       } catch (ex) {
-        debugPrint('Parse Int characteristics Exception: \'${ex}\'');
+        debugPrint('Parse Int characteristics Exception: \'$ex\'');
       }
     }
     return intValue;
@@ -717,7 +715,7 @@ class _HomePageState extends State<HomePage> {
           doubleValue = double.parse(stringValue);
         }
       } catch (ex) {
-        debugPrint('Parse Double characteristics Exception: \'${ex}\'');
+        debugPrint('Parse Double characteristics Exception: \'$ex\'');
       }
     }
     return doubleValue;
@@ -733,7 +731,7 @@ class _HomePageState extends State<HomePage> {
           statusValue = StatusMessage.fromJson(statusMap);
         }
       } catch (ex) {
-        debugPrint('Parse Status characteristics Exception: \'${ex}\'');
+        debugPrint('Parse Status characteristics Exception: \'$ex\'');
       }
     }
     return statusValue;

@@ -11,13 +11,13 @@ class StatusMessage {
   StatusMessage(this.status, this.message);
 
   StatusMessage.EmptyConstructor()
-      : this.status = 0,
-        this.message = "N/A";
+      : status = 0,
+        message = "N/A";
 
   StatusMessage.fromJson(Map<String, dynamic> json) {
-    this.status = json['Status'] as int;
+    status = json['Status'] as int;
     if (json['Message'] != null) {
-     this.message = json['Message'] as String;
+     message = json['Message'] as String;
     }
   }
 

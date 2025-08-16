@@ -14,7 +14,7 @@ class _AboutPageState extends State<AboutPage> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        backgroundColor: Color(0xFFCFFF60),
+        backgroundColor: const Color(0xFFCFFF60),
         body: SafeArea(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -51,7 +51,7 @@ class _AboutPageState extends State<AboutPage> {
                 shape: BeveledRectangleBorder(
                   borderRadius: BorderRadius.circular(7.0),
                 ),
-                margin: EdgeInsets.symmetric(vertical: 10,horizontal: 25),
+                margin: const EdgeInsets.symmetric(vertical: 10,horizontal: 25),
                 child: const ListTile(
                   leading: Icon(
                     Icons.phone,
@@ -72,7 +72,7 @@ class _AboutPageState extends State<AboutPage> {
                 shape: BeveledRectangleBorder(
                   borderRadius: BorderRadius.circular(7.0),
                 ),
-                margin: EdgeInsets.symmetric(vertical: 2,horizontal: 25),
+                margin: const EdgeInsets.symmetric(vertical: 2,horizontal: 25),
                 child: const ListTile(
                   leading: Icon(
                     Icons.email,
