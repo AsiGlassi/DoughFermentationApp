@@ -65,7 +65,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return SingleChildScrollView(
       child: Column(children: [
         // Bluethooth
         Container(
@@ -201,7 +201,7 @@ class _HomePageState extends State<HomePage> {
                         if ((startStopCharactaristics != null) && serviceConnected) {
                           if (doughServcieStatus == DoughServcieStatusEnum.idle) {
                             debugPrint('Start Fermentation Monitoring.');
-                            audioPlayer.PlaySound("FermStart");
+                            // audioPlayer.PlaySound("FermStart");
                             startStopCharactaristics!.write([0x1]);
                           } else if (doughServcieStatus != DoughServcieStatusEnum.Error) {
                             debugPrint('Stop Fermentation Monitoring.');
@@ -506,7 +506,7 @@ class _HomePageState extends State<HomePage> {
 
         setState(() {
           serviceConnected = true;
-          audioPlayer.PlaySound("DeviceConn");
+          // audioPlayer.PlaySound("DeviceConn");
         });
 
         //set device settings
@@ -576,7 +576,7 @@ class _HomePageState extends State<HomePage> {
         //Service Found, Mark Connected
         serviceConnected = true;
         debugPrint('Found the Dough Height Service');
-        audioPlayer.PlaySound("DeviceConn");
+        // audioPlayer.PlaySound("DeviceConn");
         await ReadCharacteristics(service);
       }
     }
